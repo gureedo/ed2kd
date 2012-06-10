@@ -10,58 +10,18 @@
       <Platform>Win32</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\buffer.c" />
-    <ClCompile Include="..\bufferevent.c" />
-    <ClCompile Include="..\bufferevent_async.c" />
-    <ClCompile Include="..\bufferevent_filter.c" />
-    <ClCompile Include="..\bufferevent_pair.c" />
-    <ClCompile Include="..\bufferevent_ratelim.c" />
-    <ClCompile Include="..\bufferevent_sock.c" />
-    <ClCompile Include="..\buffer_iocp.c" />
-    <ClCompile Include="..\event.c" />
-    <ClCompile Include="..\event_iocp.c" />
-    <ClCompile Include="..\evmap.c" />
-    <ClCompile Include="..\evthread.c" />
-    <ClCompile Include="..\evthread_win32.c" />
-    <ClCompile Include="..\evutil.c" />
-    <ClCompile Include="..\evutil_rand.c" />
-    <ClCompile Include="..\listener.c" />
-    <ClCompile Include="..\log.c" />
-    <ClCompile Include="..\signal.c" />
-    <ClCompile Include="..\strlcpy.c" />
-    <ClCompile Include="..\win32select.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\bufferevent-internal.h" />
-    <ClInclude Include="..\changelist-internal.h" />
-    <ClInclude Include="..\defer-internal.h" />
-    <ClInclude Include="..\evbuffer-internal.h" />
-    <ClInclude Include="..\event-internal.h" />
-    <ClInclude Include="..\event.h" />
-    <ClInclude Include="..\evmap-internal.h" />
-    <ClInclude Include="..\evsignal-internal.h" />
-    <ClInclude Include="..\evthread-internal.h" />
-    <ClInclude Include="..\evutil.h" />
-    <ClInclude Include="..\iocp-internal.h" />
-    <ClInclude Include="..\ipv6-internal.h" />
-    <ClInclude Include="..\log-internal.h" />
-    <ClInclude Include="..\ratelim-internal.h" />
-    <ClInclude Include="..\strlcpy-internal.h" />
-    <ClInclude Include="..\util-internal.h" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{EEECD0F0-D82A-422D-8942-8BEC76FC3259}</ProjectGuid>
+    <ProjectGuid>{A63C138B-967E-4DDB-B5EA-AC26DD124733}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>libevent_core10</RootNamespace>
+    <RootNamespace>ed2kd10</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
@@ -77,7 +37,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)_$(Configuration)\</OutDir>
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)..\bin\$(Platform)_$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -85,15 +49,18 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\WIN32-Code;$(SolutionDir)..\include;$(SolutionDir)..\compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\src\win32;$(SolutionDir)..\3rdparty\libevent\include;$(SolutionDir)..\3rdparty\libevent\WIN32-Code;$(SolutionDir)..\3rdparty\libconfig\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libevent_core10.lib;libconfig10.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\$(Platform)_$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -104,15 +71,41 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\client.c" />
+    <ClCompile Include="..\src\config.c" />
+    <ClCompile Include="..\src\ed2kd.c" />
+    <ClCompile Include="..\src\log.c" />
+    <ClCompile Include="..\src\main.c" />
+    <ClCompile Include="..\src\port_check.c" />
+    <ClCompile Include="..\src\protofilter.c" />
+    <ClCompile Include="..\src\util.c" />
+    <ClCompile Include="..\src\win32\getopt_long.c" />
+    <ClCompile Include="..\src\win32\vwarnx.c" />
+    <ClCompile Include="..\src\win32\warnx.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\client.h" />
+    <ClInclude Include="..\src\config.h" />
+    <ClInclude Include="..\src\ed2kd.h" />
+    <ClInclude Include="..\src\ed2k_proto.h" />
+    <ClInclude Include="..\src\log.h" />
+    <ClInclude Include="..\src\packed_struct.h" />
+    <ClInclude Include="..\src\packet_buffer.h" />
+    <ClInclude Include="..\src\port_check.h" />
+    <ClInclude Include="..\src\protofilter.h" />
+    <ClInclude Include="..\src\util.h" />
+    <ClInclude Include="..\src\version.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

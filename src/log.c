@@ -1,13 +1,16 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <event2/util.h>
 #include <stdarg.h>
 #include "log.h"
 
 void _ed2kd_log( enum log_severity svrt, const char * fmt, ... )
 {
-    va_list ap;
+    char buf[1024];
+	const char *severity_str;
+	va_list ap;
     va_start(ap, fmt);
 
-    const char *severity_str;
     switch ( svrt ) {
 #ifdef DEBUG
     case LOG_DBG:
@@ -28,8 +31,7 @@ void _ed2kd_log( enum log_severity svrt, const char * fmt, ... )
         break;
     }
 
-    char buf[1024];
-    snprintf(buf, sizeof(buf), "[%s] %s\n", severity_str, fmt);
+    evutil_snprintf(buf, sizeof(buf), "[%s] %s\n", severity_str, fmt);
     vfprintf(stderr, buf, ap);
 
     va_end(ap);

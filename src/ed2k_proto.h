@@ -1,8 +1,13 @@
 #ifndef PACKET_H
 #define PACKET_H
 
+#include "packed_struct.h"
+
 // magic constant
-#define EDONKEYVERSION 0x3c
+enum  
+{
+	EDONKEYVERSION = 0x3c
+};
 
 #define HASH_SIZE 16
 
@@ -53,34 +58,43 @@ enum packet_opcode {
     //OP_FOUNDSOURCES_OBFU      = 0x44  // <HASH 16><count 1>(<ID 4><PORT 2><obf settings 1>(UserHash16 if obf&0x08))[count]
 };
 
+PACKED_STRUCT(
 struct packet_header {
     uint8_t proto;
     uint32_t length;
-} __attribute__((packed));
+};
+)
 
+PACKED_STRUCT(
 struct packet_server_message {
     uint8_t proto;
     uint32_t length;
     uint8_t opcode;
     uint16_t msg_len;
-} __attribute__((packed));
+};
+)
 
+PACKED_STRUCT(
 struct packet_id_change {
     uint8_t proto;
     uint32_t length;
     uint8_t opcode;
     uint32_t user_id;
     uint32_t tcp_flags;
-} __attribute__((packed));
+};
+)
 
+PACKED_STRUCT(
 struct packet_server_status {
     uint8_t proto;
     uint32_t length;
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
-} __attribute__((packed));
+};
+)
 
+PACKED_STRUCT(
 struct packet_hello {
     uint8_t proto;
     uint32_t length;
@@ -102,8 +116,10 @@ struct packet_hello {
     } tag_version;
     uint32_t ip; // 0
     uint16_t port; //0
-} __attribute__((packed));
+};
+)
 
+PACKED_STRUCT(
 struct tag_header
 {
     uint8_t type;
@@ -112,8 +128,10 @@ struct tag_header
         char name_str;
         uint8_t name_int;
     };
-} __attribute__((packed));
+};
+)
 
+PACKED_STRUCT(
 struct tag_value {
     union {
         char val_hash16[16];
@@ -128,7 +146,8 @@ struct tag_value {
         uint16_t val_uint16;
         uint64_t val_uint64;
     };
-} __attribute__((packed));
+};
+)
 
 enum tag_type {
     TT_HASH16       = 0x01,

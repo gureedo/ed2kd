@@ -14,6 +14,7 @@ ed2k_input_filter_cb( struct evbuffer *src, struct evbuffer *dst,
 
     // wait for ed2k_header_t
     if ( src_len > sizeof(struct packet_header) ) {
+		size_t packet_len;
         const struct packet_header * header =
             (struct packet_header*)evbuffer_pullup(src, sizeof(struct packet_header));
 
@@ -22,7 +23,7 @@ ed2k_input_filter_cb( struct evbuffer *src, struct evbuffer *dst,
             return BEV_ERROR;
 
         // wait fo full length packet
-        size_t packet_len = header->length + sizeof(struct packet_header);
+        packet_len = header->length + sizeof(struct packet_header);
         if ( packet_len > src_len )
             return BEV_NEED_MORE;
 

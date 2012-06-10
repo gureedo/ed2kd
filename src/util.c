@@ -7,7 +7,8 @@
 
 int hex2bin( const char *src, unsigned char *dst, size_t dst_len )
 {
-    for ( size_t i=0; i<dst_len; ++i ) {
+	size_t i;
+    for ( i=0; i<dst_len; ++i ) {
         dst[i] = 0;
         if ( src[i] >= '0' && src[i] <= '9')
             dst[i] = 16*(src[i]-'0');
@@ -32,14 +33,15 @@ int hex2bin( const char *src, unsigned char *dst, size_t dst_len )
 }
 
 
-int bin2hex( const unsigned char *src, char *dst, const size_t dst_len )
+int bin2hex( const unsigned char *src, char *dst, size_t dst_len )
 {
-    static unsigned char hex[] = "0123456789abcdef";
+	size_t i,j;
+	static unsigned char hex[] = "0123456789abcdef";
 
     if ( dst_len % 2 == 0 )
         return -1;
 
-    for ( size_t i=0,j=0; i < dst_len-1; i+=2,j++ ) {
+    for ( i=0,j=0; i < dst_len-1; i+=2,j++ ) {
         dst[i]   = hex[(src[j] >> 4) & 0xf];
         dst[i+1] = hex[src[j] & 0xf];
     }

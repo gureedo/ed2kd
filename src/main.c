@@ -36,11 +36,15 @@ void display_usage( void )
 
 int main( int argc, char *argv[] )
 {
+	int ret, opt, longIndex = 0;
+#ifdef WIN32
+	WSADATA WSAData;
+#endif
+
     ed2kd_init();
 
     // parse command line arguments
-    int longIndex = 0;
-    int opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
+    opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
     while( opt != -1 ) {
         switch( opt ) {
             case 'v':
@@ -73,11 +77,10 @@ int main( int argc, char *argv[] )
     }
 
 #ifdef WIN32
-    WSADATA WSAData;
     WSAStartup(0x0201, &WSAData);
 #endif
 
-    int ret = ed2kd_run();
+    ret = ed2kd_run();
 
     ed2kd_config_free();
 

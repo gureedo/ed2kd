@@ -1,1 +1,7 @@
-3rdparty/libevent
+3rdparty
+lib
+bin
+doxy
+Debug
+ipch
+Release

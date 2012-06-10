@@ -25,12 +25,11 @@ void client_free( struct e_client *client )
 void send_server_message( struct e_client *client, const char *msg, uint16_t len )
 {
     struct evbuffer *outbuf = bufferevent_get_output(client->bev_srv);
-    struct packet_server_message data = {
-        .proto = PROTO_EDONKEY,
-        .length = 3 + len,
-        .opcode = OP_SERVERMESSAGE,
-        .msg_len = len
-    };
+    struct packet_server_message data;
+	data.proto = PROTO_EDONKEY;
+	data.length = 3 + len;
+	data.opcode = OP_SERVERMESSAGE;
+	data.msg_len = len;
 
     evbuffer_add(outbuf, &data, sizeof(data));
     evbuffer_add(outbuf, msg, len);
@@ -39,13 +38,12 @@ void send_server_message( struct e_client *client, const char *msg, uint16_t len
 void send_id_change( struct e_client *client )
 {
     struct evbuffer *outbuf = bufferevent_get_output(client->bev_srv);
-    struct packet_id_change data = {
-        .proto = PROTO_EDONKEY,
-        .length = 9,
-        .opcode = OP_IDCHANGE,
-        .user_id = client->ip,
-        .tcp_flags = ED2KD_SRV_TCP_FLAGS
-    };
+    struct packet_id_change data;
+    data.proto = PROTO_EDONKEY;
+    data.length = 9;
+    data.opcode = OP_IDCHANGE;
+    data.user_id = client->ip;
+    data.tcp_flags = ED2KD_SRV_TCP_FLAGS;
 
     evbuffer_add(outbuf, &data, sizeof(data));
 }
@@ -53,13 +51,12 @@ void send_id_change( struct e_client *client )
 void send_server_status( struct e_client *client )
 {
     struct evbuffer *outbuf = bufferevent_get_output(client->bev_srv);
-    struct packet_server_status data = {
-        .proto = PROTO_EDONKEY,
-        .length = 9,
-        .opcode = OP_SERVERSTATUS,
-        .user_count = ed2kd()->user_count,
-        .file_count = ed2kd()->file_count
-    };
+    struct packet_server_status data;
+    data.proto = PROTO_EDONKEY;
+    data.length = 9;
+    data.opcode = OP_SERVERSTATUS;
+    data.user_count = ed2kd()->user_count;
+    data.file_count = ed2kd()->file_count;
 
     evbuffer_add(outbuf, &data, sizeof(data));
 }

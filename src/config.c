@@ -21,15 +21,15 @@ extern struct ed2kd_inst g_ed2kd;
 
 int ed2kd_config_load( const char * path )
 {
-    config_t config;
+    static const char srv_ver[] = "server version" ED2KD_VER_STR "(ed2kd)";
+	config_t config;
+	int ret = 1;
 
     config_init(&config);
 
     if ( NULL == path ) {
         path = CFG_DEFAULT_PATH;
     }
-
-    int ret = 1;
 
     if ( config_read_file(&config, path) ) {
         config_setting_t * root;
@@ -63,7 +63,6 @@ int ed2kd_config_load( const char * path )
         }
 
         // (optional) welcome message + predefined server version
-        const char srv_ver[] = "server version" ED2KD_VER_STR "(ed2kd)";
         if ( config_setting_lookup_string(root, CFG_WELCOME_MESSAGE, &str_val) ) {
             g_ed2kd.welcome_msg_len = sizeof(srv_ver) + strlen(str_val);
             evutil_snprintf(g_ed2kd.welcome_msg, sizeof(g_ed2kd.welcome_msg), "%s\n%s", srv_ver, str_val);

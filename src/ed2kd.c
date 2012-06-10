@@ -36,7 +36,9 @@ int ed2kd_init()
 static int
 process_login_request( struct packet_buffer *pb, struct e_client *client )
 {
-    // user hash 16b
+	uint32_t tag_count;
+	
+	// user hash 16b
     PB_MEMCPY(pb, client->hash, sizeof(client->hash));
 
     // user id 4b
@@ -46,7 +48,6 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
     PB_READ_UINT16(pb, client->port);
 
     // tag count 4b
-    uint32_t tag_count;
     PB_READ_UINT32(pb, tag_count);
 
     while ( tag_count > 0 ) {
@@ -166,6 +167,9 @@ accept_cb( struct evconnlistener * listener, evutil_socket_t fd, struct sockaddr
 {
     struct sockaddr_in* peer_sa = (struct sockaddr_in*)sa;
     char ip_str[INET_ADDRSTRLEN];
+	struct e_client *client;
+	struct event_base *base;
+	struct bufferevent *tcp_bev,*ed2k_bev;
 
     evutil_inet_ntop(AF_INET, &(peer_sa->sin_addr), ip_str, sizeof(ip_str));
     ED2KD_LOGNFO("client connected (%s)", ip_str);
@@ -173,11 +177,11 @@ accept_cb( struct evconnlistener * listener, evutil_socket_t fd, struct sockaddr
     // todo: limit connections from same ip
     // todo: block banned ips
 
-    struct e_client *client = client_new();
+    client = client_new();
 
-    struct event_base *base = evconnlistener_get_base(listener);
-    struct bufferevent *tcp_bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
-    struct bufferevent *ed2k_bev = bufferevent_filter_new(tcp_bev, ed2k_input_filter_cb,
+    base = evconnlistener_get_base(listener);
+    tcp_bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+    ed2k_bev = bufferevent_filter_new(tcp_bev, ed2k_input_filter_cb,
         NULL, BEV_OPT_CLOSE_ON_FREE, NULL, client);
 
     client->ip = peer_sa->sin_addr.s_addr;
@@ -212,16 +216,24 @@ signal_cb( evutil_socket_t fd, short what, void * ctx )
 int ed2kd_run()
 {
     int ret;
+	struct event_base *base;
+	struct event *sigint_event;
+	struct sockaddr_in bind_sa;
+	int bind_sa_len;
+	struct evconnlistener *listener;
 
 #ifdef DEBUG
-    const char **methods = event_get_supported_methods();
-    if ( NULL == methods ) {
-        ED2KD_LOGERR("failed to get supported libevent methods");
-        return EXIT_FAILURE;
-    }
-    ED2KD_LOGDBG("using libevent %s. available methods are:", event_get_version());
-    for ( int i=0; methods[i] != NULL; ++i ) {
-        ED2KD_LOGDBG("    %s", methods[i]);
+    {
+        int i;
+        const char **methods = event_get_supported_methods();
+        if ( NULL == methods ) {
+            ED2KD_LOGERR("failed to get supported libevent methods");
+            return EXIT_FAILURE;
+        }
+        ED2KD_LOGDBG("using libevent %s. available methods are:", event_get_version());
+        for ( i=0; methods[i] != NULL; ++i ) {
+            ED2KD_LOGDBG("    %s", methods[i]);
+        }
     }
 #endif
 
@@ -237,7 +249,7 @@ int ed2kd_run()
         return EXIT_FAILURE;
     }
 
-    struct event_base *base = event_base_new();
+    base = event_base_new();
     if ( NULL == base ) {
         // todo: get last error
         ED2KD_LOGERR("failed to create main event loop");
@@ -251,17 +263,16 @@ int ed2kd_run()
     }
 
     // setup signals
-    struct event *sigint_event = evsignal_new(base, SIGINT, signal_cb, base);
+    sigint_event = evsignal_new(base, SIGINT, signal_cb, base);
     evsignal_add(sigint_event, NULL);
 
-    struct sockaddr_in bind_sa;
-    int bind_sa_len = sizeof(bind_sa);
+    bind_sa_len = sizeof(bind_sa);
     memset(&bind_sa, 0, sizeof(bind_sa));
     ret = evutil_parse_sockaddr_port(ed2kd()->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
     bind_sa.sin_port = htons(ed2kd()->listen_port);
     bind_sa.sin_family = AF_INET;
 
-    struct evconnlistener *listener = evconnlistener_new_bind(base,
+    listener = evconnlistener_new_bind(base,
         accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
         ed2kd()->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
     if ( NULL == listener ) {

@@ -4,7 +4,6 @@ CONFIG += console
 CONFIG -= app_bundle
 TEMPLATE = app
 
-QMAKE_CFLAGS += -std=gnu99
 LIBS += -L"$$_PRO_FILE_PWD_/3rdparty/libs/" -lconfig -levent_core -lws2_32
 
 CONFIG(debug, debug|release) {
