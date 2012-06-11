@@ -49,7 +49,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;WIN32;_DEBUG;_CONSOLE;LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)..\src\win32;$(SolutionDir)..\3rdparty\libevent\include;$(SolutionDir)..\3rdparty\libevent\WIN32-Code;$(SolutionDir)..\3rdparty\libconfig\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -86,8 +86,7 @@
     <ClCompile Include="..\src\ed2kd.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\main.c" />
-    <ClCompile Include="..\src\port_check.c" />
-    <ClCompile Include="..\src\protofilter.c" />
+    <ClCompile Include="..\src\portcheck.c" />
     <ClCompile Include="..\src\util.c" />
     <ClCompile Include="..\src\win32\getopt_long.c" />
     <ClCompile Include="..\src\win32\vwarnx.c" />
@@ -101,8 +100,7 @@
     <ClInclude Include="..\src\log.h" />
     <ClInclude Include="..\src\packed_struct.h" />
     <ClInclude Include="..\src\packet_buffer.h" />
-    <ClInclude Include="..\src\port_check.h" />
-    <ClInclude Include="..\src\protofilter.h" />
+    <ClInclude Include="..\src\portcheck.h" />
     <ClInclude Include="..\src\util.h" />
     <ClInclude Include="..\src\version.h" />
   </ItemGroup>

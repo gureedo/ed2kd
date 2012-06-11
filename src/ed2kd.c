@@ -13,7 +13,7 @@
 #include "ed2k_proto.h"
 #include "packet_buffer.h"
 #include "client.h"
-#include "port_check.h"
+#include "portcheck.h"
 
 struct ed2kd_inst g_ed2kd;
 
@@ -24,7 +24,7 @@ const struct ed2kd_inst *ed2kd()
 
 int ed2kd_init()
 {
-    if( evutil_secure_rng_init() < 0 ) {
+    if ( evutil_secure_rng_init() < 0 ) {
         ED2KD_LOGERR("Failed to seed random number generator");
         return -1;
     }
@@ -52,6 +52,7 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
 
     while ( tag_count > 0 ) {
         struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
+		// ÍÅÏÐÀÂÈËÜÍÎ!!!
         if ( tag_hdr->type & 0x80 ) {
             PB_SKIP_TAGHDR(pb, tag_hdr);
             // todo: skip value
@@ -98,13 +99,15 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
         tag_count--;
     }
 
-    client_handshake_start(client);
+    if ( client_portcheck_start(client) < 0 ) {
+		client_portcheck_failed(client);
+		return -1;
+	}
 
-    return 1;
+    return 0;
 
 malformed:
-    // dump packet, print more info to log
-    return 0;
+    return -1;
 }
 
 static int
@@ -116,63 +119,83 @@ process_packet( struct packet_buffer *pb, struct e_client *client )
 
     switch ( opcode ) {
     case OP_LOGINREQUEST:
-        PB_CHECK( process_login_request(pb, client) );
-        return 1;
+        PB_CHECK( process_login_request(pb, client) == 0 );
+        return 0;
 
     default:
         PB_CHECK(0);
     }
 
 malformed:
-    return 0;
+    return -1;
 }
 
 static void
 read_cb( struct bufferevent *bev, void *ctx )
 {
-    size_t input_len;
-    struct e_client *client = (struct e_client*)ctx;
-    struct evbuffer *input = bufferevent_get_input(bev);
+	struct e_client *client = (struct e_client*)ctx;
+	struct evbuffer *input = bufferevent_get_input(bev);
+	size_t src_len = evbuffer_get_length(input);
 
-    do {
 
-        struct packet_header * header =
-            (struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
-        size_t packet_len = header->length + sizeof(struct packet_header);
-        unsigned char * data = evbuffer_pullup(input, packet_len) + sizeof(struct packet_header);
+	while( src_len > sizeof(struct packet_header) ) {
+		unsigned char * data;
+		struct packet_buffer pb;
+		size_t packet_len;
+		const struct packet_header *header =
+			(struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
-        struct packet_buffer pb;
-        PB_INIT(&pb, data, packet_len);
-        process_packet(&pb, client);
+		// todo: add compression support
 
-        evbuffer_drain(input, packet_len);
-        input_len = evbuffer_get_length(input);
-    } while ( input_len > 0 );
+		// check header protocol
+		if ( PROTO_EDONKEY != header->proto ) {
+#ifdef DEBUG
+			ED2KD_LOGDBG("unknown packet protocol %s:%u", client->dbg.ip_str, client->port);
+#endif
+			client_free(client);
+			return;
+		}
+
+		// wait for full length packet
+		packet_len = header->length + sizeof(struct packet_header);
+		if ( packet_len > src_len )
+			return;
+
+		data = evbuffer_pullup(input, packet_len) + sizeof(struct packet_header);
+
+		PB_INIT(&pb, data, packet_len);
+		if ( process_packet(&pb, client) < 0 ) {
+#ifdef DEBUG
+			ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
+#endif
+			client_free(client);
+			return;
+		}
+
+		evbuffer_drain(input, packet_len);
+		src_len = evbuffer_get_length(input);
+	}    
 }
 
 static void
 event_cb( struct bufferevent *bev, short events, void *ctx )
 {
-    struct e_client *client = (struct e_client*)ctx;
-    if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
-        char ip_str[INET_ADDRSTRLEN];
-        evutil_inet_ntop(AF_INET, &(client->ip), ip_str, sizeof(ip_str));
-        ED2KD_LOGNFO("client diconnected (%s)", ip_str);
-        bufferevent_free(bev);
+	if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
+		struct e_client *client = (struct e_client*)ctx;
+#ifdef DEBUG
+        ED2KD_LOGDBG("got EOF or error from %s:%u", client->dbg.ip_str, client->port);
+#endif
+        client_free(client);
     }
 }
 
 static void
-accept_cb( struct evconnlistener * listener, evutil_socket_t fd, struct sockaddr * sa, int socklen, void * ctx )
+accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *sa, int socklen, void *ctx )
 {
-    struct sockaddr_in* peer_sa = (struct sockaddr_in*)sa;
-    char ip_str[INET_ADDRSTRLEN];
+    struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
 	struct e_client *client;
 	struct event_base *base;
-	struct bufferevent *tcp_bev,*ed2k_bev;
-
-    evutil_inet_ntop(AF_INET, &(peer_sa->sin_addr), ip_str, sizeof(ip_str));
-    ED2KD_LOGNFO("client connected (%s)", ip_str);
+	struct bufferevent *bev;
 
     // todo: limit connections from same ip
     // todo: block banned ips
@@ -180,17 +203,19 @@ accept_cb( struct evconnlistener * listener, evutil_socket_t fd, struct sockaddr
     client = client_new();
 
     base = evconnlistener_get_base(listener);
-    tcp_bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
-    ed2k_bev = bufferevent_filter_new(tcp_bev, ed2k_input_filter_cb,
-        NULL, BEV_OPT_CLOSE_ON_FREE, NULL, client);
+    bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
 
     client->ip = peer_sa->sin_addr.s_addr;
-    client->bev_srv = ed2k_bev;
+    client->bev_srv = bev;
+#ifdef DEBUG
+	evutil_inet_ntop(AF_INET, &(client->ip), client->dbg.ip_str, sizeof client->dbg.ip_str);
+	ED2KD_LOGNFO("client connected (%s)", client->dbg.ip_str);
+#endif
 
-    bufferevent_setcb(ed2k_bev, read_cb, NULL, event_cb, client);
-    bufferevent_enable(ed2k_bev, EV_READ|EV_WRITE);
+    bufferevent_setcb(bev, read_cb, NULL, event_cb, client);
+    bufferevent_enable(bev, EV_READ|EV_WRITE);
 
-    // todo: set handshake timeout (wait for op_login)
+    // todo: set timeout for op_login
 }
 
 static void
@@ -253,12 +278,6 @@ int ed2kd_run()
     if ( NULL == base ) {
         // todo: get last error
         ED2KD_LOGERR("failed to create main event loop");
-        return EXIT_FAILURE;
-    }
-
-    ret = event_base_priority_init(base, 1);
-    if ( ret < 0 ) {
-        ED2KD_LOGERR( "failed to init libevent priority");
         return EXIT_FAILURE;
     }
 

@@ -33,12 +33,6 @@
     <ClCompile Include="..\src\main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\port_check.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\protofilter.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\util.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -50,6 +44,9 @@
     </ClCompile>
     <ClCompile Include="..\src\win32\warnx.c">
       <Filter>Source Files\compat</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\portcheck.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -71,12 +68,6 @@
     <ClInclude Include="..\src\packet_buffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\port_check.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\protofilter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -84,6 +75,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\packed_struct.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\portcheck.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

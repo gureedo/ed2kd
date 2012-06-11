@@ -21,7 +21,7 @@ extern struct ed2kd_inst g_ed2kd;
 
 int ed2kd_config_load( const char * path )
 {
-    static const char srv_ver[] = "server version" ED2KD_VER_STR "(ed2kd)";
+    static const char srv_ver[] = "server version" ED2KD_VER_STR " (ed2kd)";
 	config_t config;
 	int ret = 1;
 
