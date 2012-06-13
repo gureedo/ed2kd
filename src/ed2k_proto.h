@@ -26,11 +26,11 @@ enum packet_opcode {
     //client2server
     OP_LOGINREQUEST             = 0x01, // <HASH 16><ID 4><PORT 2><TAG_COUNT 4><TAGS...>
     OP_REJECT                   = 0x05, // (null)
-    //OP_GETSERVERLIST			= 0x14,	// (null)client->server
-    //OP_OFFERFILES				= 0x15,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
-    //OP_SEARCHREQUEST			= 0x16,	// <Query_Tree>
+    OP_GETSERVERLIST			= 0x14,	// (null)client->server
+    OP_OFFERFILES				= 0x15,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
+    OP_SEARCHREQUEST			= 0x16,	// <Query_Tree>
     //OP_DISCONNECT				= 0x18,	// (not verified)
-    //OP_GETSOURCES				= 0x19,	// <HASH 16>
+    OP_GETSOURCES				= 0x19,	// <HASH 16>
                                         // v2 <HASH 16><SIZE_4> (17.3) (mandatory on 17.8)
                                         // v2large <HASH 16><FILESIZE 4(0)><FILESIZE 8> (17.9) (large files only)
     //OP_SEARCH_USER			= 0x1A,	// <Query_Tree>
@@ -91,6 +91,16 @@ struct packet_server_status {
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
+};
+)
+
+PACKED_STRUCT(
+struct packet_found_sources {
+	uint8_t proto;
+	uint32_t length;
+	uint8_t opcode;
+	unsigned char hash[HASH_SIZE];
+	uint32_t count;
 };
 )
 

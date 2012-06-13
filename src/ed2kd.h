@@ -13,12 +13,18 @@
 #define ED2KD_SRV_TCP_FLAGS \
     SRV_TCPFLG_TYPETAGINTEGER | SRV_TCPFLG_LARGEFILES
 
-struct ed2kd_inst
-{
-    // runtime variables
-    uint32_t user_count;
-    uint32_t file_count;
+// runtime stuff
+struct ed2kd_rt {
+	// runtime variables
+	uint32_t user_count;
+	uint32_t file_count;
+};
 
+struct ed2kd_rt *ed2kd_rt();
+
+// variables loaded from config file
+struct ed2kd_cfg
+{
     // configuration variables
     char listen_addr[15];
     uint16_t listen_port;
@@ -28,7 +34,7 @@ struct ed2kd_inst
     unsigned char hash[16];
 };
 
-const struct ed2kd_inst *ed2kd();
+const struct ed2kd_cfg *ed2kd_cfg();
 
 int ed2kd_init();
 int ed2kd_run();

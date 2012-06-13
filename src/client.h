@@ -1,9 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-enum portcheck_state {
-
-};
+#define	MAX_FOUND_SOURCES 200
 
 struct e_client {
     unsigned char hash[16];
@@ -30,14 +28,15 @@ struct e_client {
 
 struct e_client *client_new();
 
-void client_free( struct e_client *client );
+void client_delete( struct e_client *client );
 
 void client_portcheck_finish( struct e_client *client );
 void client_portcheck_failed( struct e_client *client );
 
 void send_server_message( struct e_client *client, const char *msg, uint16_t msg_len );
 
-
 void send_id_change( struct e_client *client );
+
+void send_found_sources( struct e_client *client, const unsigned char *hash );
 
 #endif // CLIENT_H

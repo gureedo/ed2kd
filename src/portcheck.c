@@ -27,7 +27,7 @@ send_hello( struct e_client *client )
     data.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_HELLO;
     data.hash_size = 16;
-    memcpy(data.hash, ed2kd()->hash, sizeof data.hash);
+    memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
     data.client_id = ntohl(sa.sin_addr.s_addr);
     data.client_port = 4662;
     data.tag_count = 2;

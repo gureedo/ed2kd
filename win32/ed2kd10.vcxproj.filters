@@ -16,6 +16,9 @@
     <Filter Include="Source Files\compat">
       <UniqueIdentifier>{8450e613-10d0-41b3-88bf-e55ca6dff172}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\compat">
+      <UniqueIdentifier>{fc77cfdd-16e1-4d8b-b2b1-7556c850f60c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\client.c">
@@ -46,6 +49,9 @@
       <Filter>Source Files\compat</Filter>
     </ClCompile>
     <ClCompile Include="..\src\portcheck.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\file.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -79,6 +85,15 @@
     </ClInclude>
     <ClInclude Include="..\src\portcheck.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\file.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\win32\getopt.h">
+      <Filter>Header Files\compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\win32\tree.h">
+      <Filter>Header Files\compat</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

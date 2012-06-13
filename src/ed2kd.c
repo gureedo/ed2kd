@@ -9,17 +9,23 @@
 #include "util.h"
 #include "log.h"
 #include "config.h"
-#include "protofilter.h"
+#include "file.h"
 #include "ed2k_proto.h"
 #include "packet_buffer.h"
 #include "client.h"
 #include "portcheck.h"
 
-struct ed2kd_inst g_ed2kd;
+struct ed2kd_cfg g_ed2kd_cfg;
+struct ed2kd_rt g_ed2kd_rt;
 
-const struct ed2kd_inst *ed2kd()
+const struct ed2kd_cfg *ed2kd_cfg()
 {
-    return &g_ed2kd;
+    return &g_ed2kd_cfg;
+}
+
+struct ed2kd_rt *ed2kd_rt()
+{
+	return &g_ed2kd_rt;
 }
 
 int ed2kd_init()
@@ -28,7 +34,8 @@ int ed2kd_init()
         ED2KD_LOGERR("Failed to seed random number generator");
         return -1;
     }
-    memset(&g_ed2kd, 0, sizeof(g_ed2kd));
+    memset(&g_ed2kd_cfg, 0, sizeof(g_ed2kd_cfg));
+	memset(&g_ed2kd_rt, 0, sizeof(g_ed2kd_rt));
 
     return 0;
 }
@@ -111,16 +118,63 @@ malformed:
 }
 
 static int
+process_offer_files( struct packet_buffer *pb, struct e_client *client )
+{
+	size_t i;
+	uint32_t count;
+	struct e_file *files;
+
+	PB_READ_UINT32(pb, count);
+	PB_CHECK(count <= 200 );
+
+	files = (struct e_file*)malloc(count*sizeof(void*));
+	
+	for( i=0; i<count; ++i ) {
+		// try to find in files_map;
+		memcpy(files[i].hash, pb->ptr, sizeof files[i].hash);
+		PB_SEEK(pb, sizeof files[i].hash);
+
+
+
+		count--;
+	}
+
+	return 1;
+
+malformed:
+	free(files);
+	return -1;
+}
+
+static int
 process_packet( struct packet_buffer *pb, struct e_client *client )
 {
     uint8_t opcode;
 
     PB_READ_UINT8(pb, opcode);
 
+	// verify portcheck state
+
     switch ( opcode ) {
     case OP_LOGINREQUEST:
         PB_CHECK( process_login_request(pb, client) == 0 );
         return 0;
+
+	case OP_GETSERVERLIST:
+		// todo: implement me
+		return 0;
+
+	case OP_SEARCHREQUEST:
+		// todo: implement me
+		return 0;
+
+	case OP_GETSOURCES:
+		// todo: implement me
+		return 0;
+
+	case OP_OFFERFILES:
+		PB_CHECK( process_offer_files(pb, client) == 0 );
+		return 0;
 
     default:
         PB_CHECK(0);
@@ -152,7 +206,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 #ifdef DEBUG
 			ED2KD_LOGDBG("unknown packet protocol %s:%u", client->dbg.ip_str, client->port);
 #endif
-			client_free(client);
+			client_delete(client);
 			return;
 		}
 
@@ -168,7 +222,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 #ifdef DEBUG
 			ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
 #endif
-			client_free(client);
+			client_delete(client);
 			return;
 		}
 
@@ -185,7 +239,7 @@ event_cb( struct bufferevent *bev, short events, void *ctx )
 #ifdef DEBUG
         ED2KD_LOGDBG("got EOF or error from %s:%u", client->dbg.ip_str, client->port);
 #endif
-        client_free(client);
+        client_delete(client);
     }
 }
 
@@ -287,22 +341,22 @@ int ed2kd_run()
 
     bind_sa_len = sizeof(bind_sa);
     memset(&bind_sa, 0, sizeof(bind_sa));
-    ret = evutil_parse_sockaddr_port(ed2kd()->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
-    bind_sa.sin_port = htons(ed2kd()->listen_port);
+    ret = evutil_parse_sockaddr_port(ed2kd_cfg()->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
+    bind_sa.sin_port = htons(ed2kd_cfg()->listen_port);
     bind_sa.sin_family = AF_INET;
 
     listener = evconnlistener_new_bind(base,
         accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
-        ed2kd()->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
+        ed2kd_cfg()->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
     if ( NULL == listener ) {
         // todo: get last error
-        ED2KD_LOGERR("failed to start listen on %s:%u", ed2kd()->listen_addr, ed2kd()->listen_port);
+        ED2KD_LOGERR("failed to start listen on %s:%u", ed2kd_cfg()->listen_addr, ed2kd_cfg()->listen_port);
         return EXIT_FAILURE;
     }
 
     evconnlistener_set_error_cb(listener, accept_error_cb);
 
-    ED2KD_LOGNFO("start listening on %s:%u", ed2kd()->listen_addr, ed2kd()->listen_port);
+    ED2KD_LOGNFO("start listening on %s:%u", ed2kd_cfg()->listen_addr, ed2kd_cfg()->listen_port);
 
     ret = event_base_dispatch(base);
     if ( ret < 0 ) {
