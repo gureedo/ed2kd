@@ -104,13 +104,14 @@ read_cb( struct bufferevent *bev, void *ctx )
 		// todo: add compression support
 
 		// wait for full length packet
+		// todo: max packet size limit
 		packet_len = header->length + sizeof(struct packet_header);
 		if ( packet_len > src_len )
 			return;
 
 		data = evbuffer_pullup(input, packet_len) + sizeof(struct packet_header);
 
-		PB_INIT(&pb, data, packet_len);
+		PB_INIT(&pb, data, header->length);
 		if ( process_packet(&pb, client) < 0 ) {
 #ifdef DEBUG
 			ED2KD_LOGDBG("client packet parsing error %s:%u", client->dbg.ip_str, client->port);

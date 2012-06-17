@@ -1,13 +1,16 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#define	MAX_FOUND_SOURCES 200
+#define MAX_NICK_LEN		255
+// max sources per one packet
+#define	MAX_FOUND_SOURCES	200
+
 
 struct e_client {
     unsigned char hash[16];
     uint32_t ip;
     uint16_t port;
-    char *nick;
+    char nick[MAX_NICK_LEN+1];
     uint16_t nick_len;
     uint32_t server_flags;
     uint32_t emule_ver;

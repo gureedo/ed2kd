@@ -7,7 +7,7 @@
 #include "ed2k_proto.h"
 #include "version.h"
 #include "log.h"
-#include "file.h"
+#include "db.h"
 
 struct e_client *client_new()
 {
@@ -24,7 +24,6 @@ void client_delete( struct e_client *client )
 	ED2KD_LOGDBG("client removed (%s:%d)", client->dbg.ip_str, client->port);
 #endif
 
-    if( client->nick ) free(client->nick);
 	if( client->bev_cli ) bufferevent_free(client->bev_cli);
 	if( client->bev_srv ) bufferevent_free(client->bev_srv);
     free(client);
@@ -80,11 +79,11 @@ void send_search_result( struct e_client *client )
 
 void send_found_sources( struct e_client *client, const unsigned char *hash )
 {
-	uint32_t src_count;
+	uint32_t src_count = MAX_FOUND_SOURCES;
 	struct e_source sources[MAX_FOUND_SOURCES];
 	struct packet_found_sources data;
 
-	src_count = file_get_sources(hash, sources, MAX_FOUND_SOURCES);
+	src_count = db_get_sources(hash, sources, &src_count);
 
 	data.proto = PROTO_EDONKEY;
 	memcpy(data.hash, hash, sizeof data.hash);

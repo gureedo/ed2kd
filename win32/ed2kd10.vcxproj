@@ -50,7 +50,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>DEBUG;WIN32;_DEBUG;_CONSOLE;LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\src\win32;$(SolutionDir)..\3rdparty\libevent\include;$(SolutionDir)..\3rdparty\libevent\WIN32-Code;$(SolutionDir)..\3rdparty\libconfig\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\src\win32;$(SolutionDir)..\3rdparty\libevent\include;$(SolutionDir)..\3rdparty\libevent\WIN32-Code;$(SolutionDir)..\3rdparty\libconfig\lib;$(SolutionDir)..\3rdparty\sqlite;$(SolutionDir)..\3rdparty\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
@@ -59,7 +59,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libevent_core10.lib;libconfig10.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>zlib10.lib;libevent_core10.lib;libconfig10.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)..\lib\$(Platform)_$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -83,8 +83,8 @@
   <ItemGroup>
     <ClCompile Include="..\src\client.c" />
     <ClCompile Include="..\src\config.c" />
+    <ClCompile Include="..\src\db_sqlite\db_sqlite.c" />
     <ClCompile Include="..\src\ed2kd.c" />
-    <ClCompile Include="..\src\file.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\portcheck.c" />
@@ -98,7 +98,7 @@
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\ed2kd.h" />
     <ClInclude Include="..\src\ed2k_proto.h" />
-    <ClInclude Include="..\src\file.h" />
+    <ClInclude Include="..\src\db.h" />
     <ClInclude Include="..\src\log.h" />
     <ClInclude Include="..\src\packed_struct.h" />
     <ClInclude Include="..\src\packet_buffer.h" />
@@ -106,7 +106,6 @@
     <ClInclude Include="..\src\util.h" />
     <ClInclude Include="..\src\version.h" />
     <ClInclude Include="..\src\win32\getopt.h" />
-    <ClInclude Include="..\src\win32\tree.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

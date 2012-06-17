@@ -134,10 +134,7 @@ struct tag_header
 {
     uint8_t type;
     uint16_t name_len;
-    union {
-        char name_str;
-        uint8_t name_int;
-    };
+    unsigned char name;
 };
 )
 
@@ -193,42 +190,37 @@ enum tag_type {
 
 enum tag_name
 {
-    TN_NAME                     = 0x01,
-    //CT_SERVER_UDPSEARCH_FLAGS   = 0x0E,
+	// OP_LOGINREQUEST
+	TN_NAME                     = 0x01,
     TN_PORT                     = 0x0F,
     TN_VERSION                  = 0x11,
     TN_SERVER_FLAGS             = 0x20,
+    TN_EMULE_VERSION            = 0xFB,
 
-    //CT_EMULECOMPAT_OPTIONS      = 0xEF,
-    //CT_EMULE_RESERVED1          = 0xF0,
-    //CT_EMULE_RESERVED2          = 0xF1,
-    //CT_EMULE_RESERVED3          = 0xF2,
-    //CT_EMULE_RESERVED4          = 0xF3,
-    //CT_EMULE_RESERVED5          = 0xF4,
-    //CT_EMULE_RESERVED6          = 0xF5,
-    //CT_EMULE_RESERVED7          = 0xF6,
-    //CT_EMULE_RESERVED8          = 0xF7,
-    //CT_EMULE_RESERVED9          = 0xF8,
-    //CT_EMULE_UDPPORTS           = 0xF9,
-    //CT_EMULE_MISCOPTIONS1       = 0xFA,
-    TN_EMULE_VERSION            = 0xFB
-    //CT_EMULE_BUDDYIP            = 0xFC,
-    //CT_EMULE_BUDDYUDP           = 0xFD,
-    //CT_EMULE_MISCOPTIONS2       = 0xFE,
-    //CT_EMULE_RESERVED13         = 0xFF,
+	// OP_OFFERFILES
+	TN_FILENAME					= 0x01,
+	TN_FILESIZE					= 0x02,
+	TN_FILETYPE					= 0x03,
+	FT_FILESIZE_HI				= 0x3A,
+	TN_FILERATING				= 0xF7
+};
 
-    // Old MuleInfo tags
-    //ET_COMPRESSION              = 0x20u,
-    //ET_UDPPORT                  = 0x21u,
-    //ET_UDPVER                   = 0x22u,
-    //ET_SOURCEEXCHANGE           = 0x23u,
-    //ET_COMMENTS                 = 0x24u,
-    //ET_EXTENDEDREQUEST          = 0x25u,
-    //ET_COMPATIBLECLIENT         = 0x26u,
-    //ET_FEATURES                 = 0x27u, //! bit 0: SecIdent v1 - bit 1: SecIdent v2
-    //ET_MOD_VERSION              = 0x55u,
-    //ET_FEATURESET            = 0x54u, // int - [Bloodymad Featureset] // UNUSED
-    //ET_OS_INFO                  = 0x94u  // Reused rand tag (MOD_OXY), because the type is unknown
+// string tag names
+#define	TNS_MEDIA_LENGTH	"length"
+#define	TNS_MEDIA_BITRATE	"bitrate"
+#define	TNS_MEDIA_CODEC		"codec"
+
+enum file_type
+{
+	FT_ANY				= 0,
+	FT_AUDIO			= 1,
+	FT_VIDEO			= 2,
+	FT_IMAGE			= 3,
+	FT_PROGRAM			= 4,
+	FT_DOCUMENT			= 5,
+	FT_ARCHIVE			= 6,
+	FT_CDIMAGE			= 7,
+	FT_EMULECOLLECTION	= 8
 };
 
 #endif // PACKET_H

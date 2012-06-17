@@ -5,11 +5,12 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/listener.h>
+#include <zlib.h>
 #include "ed2kd.h"
 #include "util.h"
 #include "log.h"
 #include "config.h"
-#include "file.h"
+#include "db.h"
 #include "ed2k_proto.h"
 #include "packet_buffer.h"
 #include "client.h"
@@ -46,7 +47,7 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
 	uint32_t tag_count;
 	
 	// user hash 16b
-    PB_MEMCPY(pb, client->hash, sizeof(client->hash));
+    PB_MEMCPY(pb, client->hash, sizeof client->hash);
 
     // user id 4b
     PB_SEEK(pb, sizeof(uint32_t));
@@ -57,53 +58,52 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
     // tag count 4b
     PB_READ_UINT32(pb, tag_count);
 
-    while ( tag_count > 0 ) {
-        struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
-		// ÍÅÏÐÀÂÈËÜÍÎ!!!
-        if ( tag_hdr->type & 0x80 ) {
-            PB_SKIP_TAGHDR(pb, tag_hdr);
-            // todo: skip value
-        } else {
-            PB_SKIP_TAGHDR(pb, tag_hdr);
-            switch ( tag_hdr->name_int ) {
-            case TN_NAME: {
-                PB_CHECK(TT_STRING == tag_hdr->type);
-                PB_READ_UINT16(pb, client->nick_len);
-                client->nick = (char*)malloc(client->nick_len+sizeof(char));
-                PB_MEMCPY(pb, client->nick, client->nick_len);
-                client->nick[client->nick_len] = 0;
-                break;
-            }
+    for ( ; tag_count>0; --tag_count ) {
+        const struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
+        
+		// no new tags allowed here
+		PB_CHECK( (tag_hdr->type & 0x80) == 0 );
+		
+		// only int-based tag names
+		PB_CHECK( 1 == tag_hdr->name_len );
 
-            case TN_PORT:
-                PB_CHECK(TT_UINT16 == tag_hdr->type);
-                PB_READ_UINT16(pb, client->port);
-                break;
+        PB_SKIP_TAGHDR(pb, tag_hdr);
+        
+		switch ( tag_hdr->name ) {
+        case TN_NAME:
+            PB_CHECK(TT_STRING == tag_hdr->type);
+            PB_READ_UINT16(pb, client->nick_len);
+			client->nick_len = client->nick_len > MAX_NICK_LEN ? MAX_NICK_LEN : client->nick_len;
+            PB_MEMCPY(pb, client->nick, client->nick_len);
+            client->nick[client->nick_len] = 0;
+            break;
 
-            case TN_VERSION: {
-                uint32_t ver;
-                PB_CHECK(TT_UINT32 == tag_hdr->type);
-                PB_READ_UINT32(pb, ver);
-                PB_CHECK(EDONKEYVERSION == ver);
-                break;
-            }
+        case TN_PORT:
+            PB_CHECK(TT_UINT16 == tag_hdr->type);
+            PB_READ_UINT16(pb, client->port);
+            break;
 
-            case TN_SERVER_FLAGS:
-                PB_CHECK(TT_UINT32 == tag_hdr->type);
-                PB_READ_UINT32(pb, client->server_flags);
-                break;
-
-            case TN_EMULE_VERSION:
-                PB_CHECK(TT_UINT32 == tag_hdr->type);
-                PB_READ_UINT32(pb, client->emule_ver);
-                break;
-
-            default:
-                PB_CHECK(0);
-            }
+        case TN_VERSION: {
+            uint32_t ver;
+            PB_CHECK(TT_UINT32 == tag_hdr->type);
+            PB_READ_UINT32(pb, ver);
+            PB_CHECK(EDONKEYVERSION == ver);
+            break;
         }
 
-        tag_count--;
+        case TN_SERVER_FLAGS:
+            PB_CHECK(TT_UINT32 == tag_hdr->type);
+            PB_READ_UINT32(pb, client->server_flags);
+            break;
+
+        case TN_EMULE_VERSION:
+            PB_CHECK(TT_UINT32 == tag_hdr->type);
+            PB_READ_UINT32(pb, client->emule_ver);
+            break;
+
+        default:
+            PB_CHECK(0);
+        }
     }
 
     if ( client_portcheck_start(client) < 0 ) {
@@ -122,37 +122,121 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 {
 	size_t i;
 	uint32_t count;
-	struct e_file *files;
 
 	PB_READ_UINT32(pb, count);
 	PB_CHECK(count <= 200 );
-
-	files = (struct e_file*)malloc(count*sizeof(void*));
 	
 	for( i=0; i<count; ++i ) {
-		// try to find in files_map;
-		memcpy(files[i].hash, pb->ptr, sizeof files[i].hash);
-		PB_SEEK(pb, sizeof files[i].hash);
+		uint32_t tag_count, id;
+		uint16_t port;
+		struct e_file file = {0};
+
+		PB_MEMCPY(pb, file.hash, sizeof file.hash);
+
+		PB_READ_UINT32(pb, id);
+		PB_READ_UINT16(pb, port);
+
+		if ( (0xfbfbfbfb == id) && (0xfbfb == port) ) {
+			// todo: count complete sources
+			// 0xfc... -> incomplete file, 0xfb... -> complete
+		}
+
+		PB_READ_UINT32(pb, tag_count);
+
+		for ( ; tag_count>0; --tag_count ) {
+			struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
+
+			// new tags currently unsupported
+			PB_CHECK( (tag_hdr->type & 0x80) == 0 );
+
+			PB_SKIP_TAGHDR(pb, tag_hdr);
+
+			// string-named tags
+			if (tag_hdr->name_len > 1 ) {
+				if( memcmp(TNS_MEDIA_LENGTH, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
+					if ( TT_UINT32 == tag_hdr->type ) {
+						uint32_t media_len;
+						PB_READ_UINT32(pb, media_len);
+					} else if ( TT_STRING == tag_hdr->type ) {
+						uint16_t len;
+						PB_READ_UINT16(pb, len);
+						PB_SEEK(pb, len);
+					} else {
+						PB_CHECK(0);
+					}
+				} else if( memcmp(TNS_MEDIA_BITRATE, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
+					uint32_t bitrate;
+					PB_CHECK( TT_UINT32 == tag_hdr->type );
+					PB_READ_UINT32(pb, bitrate);
+				} else if( memcmp(TNS_MEDIA_CODEC, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
+					uint16_t len;
+					PB_CHECK( TT_STRING == tag_hdr->type );
+					PB_READ_UINT16(pb, len);
+					PB_SEEK(pb, len);
+				} else {
+					PB_CHECK(0);
+				}
+			} else {
+				switch ( tag_hdr->name ) {
+
+				case TN_FILENAME:
+					PB_CHECK(TT_STRING == tag_hdr->type);
+					PB_READ_UINT16(pb, file.name_len);
+					file.name_len = file.name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : file.name_len;
+					PB_MEMCPY(pb, file.name, file.name_len);
+					file.name[file.name_len] = 0;
+					break;
+
+				case TN_FILESIZE:
+					PB_CHECK(TT_UINT32 == tag_hdr->type);
+					PB_READ_UINT32(pb, file.size);
+					break;
+
+				case FT_FILESIZE_HI: {
+					uint32_t size_hi;
+					PB_CHECK(TT_UINT32 == tag_hdr->type);
+					PB_READ_UINT32(pb, size_hi);
+					file.size = (uint64_t)size_hi << 32;
+					break;
+				}
+
+				case TN_FILERATING:
+					PB_CHECK(TT_UINT32 == tag_hdr->type);
+					PB_READ_UINT8(pb, file.rating);
+					break;
+
+				case TN_FILETYPE:
+					if ( TT_UINT32 == tag_hdr->type ) {
+						PB_READ_UINT8(pb, file.type);
+					} else if ( TT_STRING == tag_hdr->type ) {
+						// todo: read string file type and find its integer representation
+					} else {
+						PB_CHECK(0);
+					}
+					break;
+
+				default:
+					PB_CHECK(0);
+				}
+			}
+		}
 
 
+
+		db_add_file( &file, client );
 
 		count--;
 	}
 
-	return 1;
+	return 0;
 
 malformed:
-	free(files);
 	return -1;
 }
 
 static int
-process_packet( struct packet_buffer *pb, struct e_client *client )
+process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *client )
 {
-    uint8_t opcode;
-
-    PB_READ_UINT8(pb, opcode);
-
 	// verify portcheck state
 
     switch ( opcode ) {
@@ -169,7 +253,7 @@ process_packet( struct packet_buffer *pb, struct e_client *client )
 		return 0;
 
 	case OP_GETSOURCES:
-		// todo: implement me
+		send_found_sources(client, pb->ptr);
 		return 0;
 
 	case OP_OFFERFILES:
@@ -191,20 +275,18 @@ read_cb( struct bufferevent *bev, void *ctx )
 	struct evbuffer *input = bufferevent_get_input(bev);
 	size_t src_len = evbuffer_get_length(input);
 
-
 	while( src_len > sizeof(struct packet_header) ) {
-		unsigned char * data;
+		unsigned char *data;
 		struct packet_buffer pb;
 		size_t packet_len;
+		int ret;
 		const struct packet_header *header =
 			(struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
-		// todo: add compression support
-
 		// check header protocol
-		if ( PROTO_EDONKEY != header->proto ) {
+		if  ( PROTO_PACKED != header->proto && PROTO_EDONKEY != header->proto ) {
 #ifdef DEBUG
-			ED2KD_LOGDBG("unknown packet protocol %s:%u", client->dbg.ip_str, client->port);
+			ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
 #endif
 			client_delete(client);
 			return;
@@ -212,13 +294,37 @@ read_cb( struct bufferevent *bev, void *ctx )
 
 		// wait for full length packet
 		packet_len = header->length + sizeof(struct packet_header);
+		// todo: max packet size limit
 		if ( packet_len > src_len )
 			return;
 
 		data = evbuffer_pullup(input, packet_len) + sizeof(struct packet_header);
 
-		PB_INIT(&pb, data, packet_len);
-		if ( process_packet(&pb, client) < 0 ) {
+		if ( PROTO_PACKED == header->proto ) {
+			unsigned char *unpacked;
+			unsigned long unpacked_len = header->length*10 + 300;
+			if ( unpacked_len > 50000 ) {
+				 unpacked_len = 50000;
+			}
+			unpacked = (unsigned char*)malloc(unpacked_len);
+			ret = uncompress(unpacked, &unpacked_len, data+1, header->length-1);
+			if ( Z_OK == ret ) {
+				PB_INIT(&pb, unpacked, unpacked_len);
+				ret = process_packet(&pb, *data, client);
+			} else {
+#ifdef DEBUG
+				ED2KD_LOGDBG("failed to unpack packet from %s:%u", client->dbg.ip_str, client->port);
+#endif
+				ret = -1;
+			}
+			free(unpacked);
+		} else {
+			PB_INIT(&pb, data+1, header->length-1);
+			ret = process_packet(&pb, *data, client);
+		}
+
+		
+		if (  ret < 0 ) {
 #ifdef DEBUG
 			ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
 #endif

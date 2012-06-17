@@ -15,7 +15,7 @@ struct packet_buffer {
 
 #define PB_SEEK(pkt, off)               \
     (pkt)->ptr += off;                  \
-    PB_CHECK( (pkt)->ptr < (pkt)->end )
+    PB_CHECK( (pkt)->ptr <= (pkt)->end )
 
 #define PB_MEMCPY(pkt, dst, len)      \
     memcpy((dst), (pkt)->ptr, (len)); \
