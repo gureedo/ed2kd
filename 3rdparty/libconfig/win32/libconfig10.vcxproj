@@ -52,7 +52,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)_$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\..\lib\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)..\..\..\junk\$(Platform)_$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
