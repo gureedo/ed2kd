@@ -4,6 +4,7 @@
 #include "packed_struct.h"
 
 #define MAX_FILENAME_LEN	255
+#define MAX_FILETAG_LEN		64
 
 PACKED_STRUCT(
 struct e_source {
@@ -19,9 +20,14 @@ struct e_file {
 	uint64_t size;
 	uint8_t rating;
 	uint8_t type;
+	uint32_t media_length;
+	uint32_t media_bitrate;
+	char media_codec[MAX_FILETAG_LEN+1];
 };
 
 int db_open();
+int db_close();
+
 int db_add_file( const struct e_file *file, const struct e_client *owner );
 int db_remove_source( const struct e_client *owner );
 int db_get_sources( const unsigned char *hash, struct e_source *buf, size_t *size );

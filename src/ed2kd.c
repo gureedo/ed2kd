@@ -70,13 +70,13 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
         PB_SKIP_TAGHDR(pb, tag_hdr);
         
 		switch ( tag_hdr->name ) {
-        case TN_NAME:
+        case TN_NAME: {
             PB_CHECK(TT_STRING == tag_hdr->type);
-            PB_READ_UINT16(pb, client->nick_len);
-			client->nick_len = client->nick_len > MAX_NICK_LEN ? MAX_NICK_LEN : client->nick_len;
-            PB_MEMCPY(pb, client->nick, client->nick_len);
+			client->nick_len = MAX_NICK_LEN;
+			PB_READ_STRING(pb, client->nick, client->nick_len);
             client->nick[client->nick_len] = 0;
             break;
+		}
 
         case TN_PORT:
             PB_CHECK(TT_UINT16 == tag_hdr->type);
@@ -155,9 +155,9 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 			if (tag_hdr->name_len > 1 ) {
 				if( memcmp(TNS_MEDIA_LENGTH, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
 					if ( TT_UINT32 == tag_hdr->type ) {
-						uint32_t media_len;
-						PB_READ_UINT32(pb, media_len);
+						PB_READ_UINT32(pb, file.media_length);
 					} else if ( TT_STRING == tag_hdr->type ) {
+						// todo: support string values
 						uint16_t len;
 						PB_READ_UINT16(pb, len);
 						PB_SEEK(pb, len);
@@ -165,14 +165,13 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 						PB_CHECK(0);
 					}
 				} else if( memcmp(TNS_MEDIA_BITRATE, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
-					uint32_t bitrate;
 					PB_CHECK( TT_UINT32 == tag_hdr->type );
-					PB_READ_UINT32(pb, bitrate);
+					PB_READ_UINT32(pb, file.media_bitrate);
 				} else if( memcmp(TNS_MEDIA_CODEC, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
-					uint16_t len;
-					PB_CHECK( TT_STRING == tag_hdr->type );
-					PB_READ_UINT16(pb, len);
-					PB_SEEK(pb, len);
+					uint16_t len = MAX_FILETAG_LEN;
+					PB_CHECK(TT_STRING == tag_hdr->type);
+					PB_READ_STRING(pb, file.media_codec, len);
+					file.media_codec[len] = 0;
 				} else {
 					PB_CHECK(0);
 				}
@@ -464,7 +463,12 @@ int ed2kd_run()
 
     ED2KD_LOGNFO("start listening on %s:%u", ed2kd_cfg()->listen_addr, ed2kd_cfg()->listen_port);
 
-    ret = event_base_dispatch(base);
+    if ( db_open() < 0 ) {
+		ED2KD_LOGERR("failed to open database");
+		return EXIT_FAILURE;
+	}
+	
+	ret = event_base_dispatch(base);
     if ( ret < 0 ) {
         // todo: get last error
         ED2KD_LOGERR("failed to start main event loop");
@@ -474,7 +478,11 @@ int ed2kd_run()
         ED2KD_LOGWRN("no active events in main loop");
     }
 
-    evconnlistener_free(listener);
+	if ( db_close() < 0 ) {
+		// todo: log error
+	}
+	
+	evconnlistener_free(listener);
     event_free(sigint_event);
     event_base_free(base);
 
