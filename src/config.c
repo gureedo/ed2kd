@@ -16,6 +16,8 @@
 #define CFG_LISTEN_BACKLOG          "listen_backlog"
 #define CFG_WELCOME_MESSAGE         "welcome_message"
 #define CFG_SERVER_HASH             "server_hash"
+#define CFG_SERVER_NAME             "server_name"
+#define CFG_SERVER_DESCR            "server_descr"
 
 extern struct ed2kd_cfg g_ed2kd_cfg;
 
@@ -64,10 +66,10 @@ int ed2kd_config_load( const char * path )
 
         // (optional) welcome message + predefined server version
         if ( config_setting_lookup_string(root, CFG_WELCOME_MESSAGE, &str_val) ) {
-            g_ed2kd_cfg.welcome_msg_len = sizeof(srv_ver) + strlen(str_val);
+            g_ed2kd_cfg.welcome_msg_len = sizeof srv_ver + strlen(str_val)+1;
             evutil_snprintf(g_ed2kd_cfg.welcome_msg, sizeof(g_ed2kd_cfg.welcome_msg), "%s\n%s", srv_ver, str_val);
         } else {
-            g_ed2kd_cfg.welcome_msg_len = sizeof(srv_ver) - sizeof(char);
+            g_ed2kd_cfg.welcome_msg_len = sizeof srv_ver - sizeof(char);
             strcpy(g_ed2kd_cfg.welcome_msg, srv_ver);
             ED2KD_LOGWRN("config: " CFG_WELCOME_MESSAGE " missing");
         }
@@ -80,11 +82,28 @@ int ed2kd_config_load( const char * path )
             ret = -1;
         }
 
+		// server name (optional)
+		if ( config_setting_lookup_string(root, CFG_SERVER_NAME, &str_val) ) {
+			size_t len = strlen(str_val)-1;
+			g_ed2kd_cfg.server_name_len = MAX_SERVER_NAME_LEN > len ? len: MAX_SERVER_NAME_LEN;
+			strncpy(g_ed2kd_cfg.server_name, str_val, g_ed2kd_cfg.server_name_len+1);
+		}
+
+		// server name (optional)
+		if ( config_setting_lookup_string(root, CFG_SERVER_DESCR, &str_val) ) {
+			size_t len = strlen(str_val)-1;
+			g_ed2kd_cfg.server_descr_len = MAX_SERVER_DESCR_LEN > len ? len: MAX_SERVER_DESCR_LEN;
+			strncpy(g_ed2kd_cfg.server_descr, str_val, g_ed2kd_cfg.server_descr_len+1);
+		}
+
     } else {
         ED2KD_LOGWRN("config: failed to parse %s(error:%s at %d line)", config_error_file(&config),
             config_error_text(&config), config_error_line(&config));
         ret = -1;
     }
+
+	// some additional variables
+	evutil_inet_pton(AF_INET, g_ed2kd_cfg.listen_addr, &g_ed2kd_cfg.listen_addr_int);
 
     config_destroy(&config);
 

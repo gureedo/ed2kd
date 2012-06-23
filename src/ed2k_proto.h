@@ -29,7 +29,7 @@ enum packet_opcode {
     OP_GETSERVERLIST			= 0x14,	// (null)client->server
     OP_OFFERFILES				= 0x15,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
     OP_SEARCHREQUEST			= 0x16,	// <Query_Tree>
-    //OP_DISCONNECT				= 0x18,	// (not verified)
+    OP_DISCONNECT				= 0x18,	// (not verified)
     OP_GETSOURCES				= 0x19,	// <HASH 16>
                                         // v2 <HASH 16><SIZE_4> (17.3) (mandatory on 17.8)
                                         // v2large <HASH 16><FILESIZE 4(0)><FILESIZE 8> (17.9) (large files only)
@@ -38,7 +38,7 @@ enum packet_opcode {
     //OP_QUERY_CHATS			= 0x1D,	// (deprecated, not supported by server any longer)
     //OP_CHAT_MESSAGE			= 0x1E,	// (deprecated, not supported by server any longer)
     //OP_JOIN_ROOM				= 0x1F,	// (deprecated, not supported by server any longer)
-    //OP_QUERY_MORE_RESULT		= 0x21,	// (null)
+    OP_QUERY_MORE_RESULT		= 0x21,	// (null)
     //OP_GETSOURCES_OBFU        = 0x23,
     //OP_SERVERLIST				= 0x32,	// <count 1>(<IP 4><PORT 2>)[count] server->client
     //OP_SEARCHRESULT			= 0x33,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
@@ -91,6 +91,19 @@ struct packet_server_status {
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
+};
+)
+
+PACKED_STRUCT(
+struct packet_server_ident {
+	uint8_t proto;
+	uint32_t length;
+	uint8_t opcode;
+	unsigned char hash[HASH_SIZE];
+	uint32_t ip;
+	uint16_t port;
+	uint32_t tag_count;
+	// tag set
 };
 )
 
@@ -202,7 +215,11 @@ enum tag_name
 	TN_FILESIZE					= 0x02,
 	TN_FILETYPE					= 0x03,
 	FT_FILESIZE_HI				= 0x3A,
-	TN_FILERATING				= 0xF7
+	TN_FILERATING				= 0xF7,
+
+	// OP_SERVERIDENT
+	TN_SERVERNAME				= 0x01,
+	TN_DESCRIPTION				= 0x0B
 };
 
 // string tag names
@@ -221,6 +238,26 @@ enum file_type
 	FT_ARCHIVE			= 6,
 	FT_CDIMAGE			= 7,
 	FT_EMULECOLLECTION	= 8
+};
+
+enum search_operator 
+{
+    SO_AND            = 0x0000, // uint16
+    SO_OR             = 0x0100, // uint16
+    SO_NOT            = 0x0200, // uint16
+    SO_STRING_TERM    = 0x01, // uint8
+    SO_STRING_CONSTR  = 0x02, // uint8
+    SO_UINT32         = 0x03, // uint8
+    SO_UINT64         = 0x08  // uint8
+};
+
+enum search_constraint {
+    SC_MINSIZE      = 0x01000101,
+    SC_MAXSIZE      = 0x02000101,
+    SC_SRCAVAIL     = 0x15000101,
+    SC_SRCCMPLETE   = 0x30000101,
+    SC_MINBITRATE   = 0xd4000101,
+    SC_MINLENGTH    = 0xd3000101,
 };
 
 #endif // PACKET_H

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <signal.h>
+#include <malloc.h>
 #include <event2/event.h>
 #include <event2/thread.h>
 #include <event2/buffer.h>
@@ -137,8 +138,7 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 		PB_READ_UINT16(pb, port);
 
 		if ( (0xfbfbfbfb == id) && (0xfbfb == port) ) {
-			// todo: count complete sources
-			// 0xfc... -> incomplete file, 0xfb... -> complete
+            file.complete = 1;
 		}
 
 		PB_READ_UINT32(pb, tag_count);
@@ -206,9 +206,12 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 
 				case TN_FILETYPE:
 					if ( TT_UINT32 == tag_hdr->type ) {
-						PB_READ_UINT8(pb, file.type);
+						PB_READ_UINT32(pb, file.type);
 					} else if ( TT_STRING == tag_hdr->type ) {
 						// todo: read string file type and find its integer representation
+                        uint16_t len;
+                        PB_READ_UINT16(pb, len);
+                        PB_SEEK(pb, len);
 					} else {
 						PB_CHECK(0);
 					}
@@ -220,11 +223,11 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 			}
 		}
 
-
-
+#ifdef DEBUG
+        ED2KD_LOGDBG("file name:%s,size:%u published", file.name, file.size);
+#endif
+        // todo: check return
 		db_add_file( &file, client );
-
-		count--;
 	}
 
 	return 0;
@@ -234,21 +237,137 @@ malformed:
 }
 
 static int
+process_search_request( struct packet_buffer *pb, struct e_client *client )
+{
+    struct search_node *n, root = {0};
+    n = &root;
+
+    while ( n ) {
+        if( (ST_AND <= n->type) && (ST_NOT >= n->type) ) {
+            struct search_node *new_node = (struct search_node*)alloca(sizeof(struct search_node));
+            memset(new_node, 0, sizeof(struct search_node));
+            new_node->parent = n;
+            if ( !n->left ) {
+                n->left = new_node;
+                n = new_node;
+                continue;
+            } else if ( !n->right ) {
+                n->right = new_node;
+                n = new_node;
+                continue;
+            } else if ( n->left->string_term && n->right->string_term ) {
+                n->string_term = 1;
+            }
+        } else if ( ST_EMPTY == n->type ) {
+            if ( SO_AND == PB_PTR_UINT16(pb) ) {
+                n->type = ST_AND;
+                PB_SEEK(pb, sizeof(uint16_t));
+                continue;
+
+            } else if ( SO_OR == PB_PTR_UINT16(pb) ) {
+                n->type = ST_OR;
+                PB_SEEK(pb, sizeof(uint16_t));
+                continue;
+
+            } else if ( SO_NOT == PB_PTR_UINT16(pb) ) {
+                n->type = ST_NOT;
+                PB_SEEK(pb, sizeof(uint16_t));
+                continue;
+
+            } else if ( SO_STRING_TERM == PB_PTR_UINT8(pb) ) {
+                n->type = ST_STRING;
+                PB_SEEK(pb, 1);
+                PB_READ_UINT16(pb, n->str_len);
+                n->str_val = (const char*)pb->ptr;
+                PB_SEEK(pb, n->str_len);
+                n->string_term = 1;
+
+            } else if ( SO_STRING_CONSTR == PB_PTR_UINT8(pb) ) {
+                uint16_t tail1;
+                uint8_t tail2;
+                PB_SEEK(pb, 1);
+                PB_READ_UINT16(pb, n->str_len);
+                n->str_val = (const char*)pb->ptr;
+                PB_SEEK(pb, n->str_len);
+                PB_READ_UINT16(pb, tail1);
+                PB_READ_UINT8(pb, tail2);
+                // todo: add macro for this magic constants
+                if( (0x0001 == tail1) && (0x04 == tail2) ) {
+                    n->type = ST_EXTENSION;
+                } else if ( (0x0001 == tail1) && (0xd5 == tail2) ) {
+                    n->type = ST_CODEC;
+                } else if ( (0x0001 == tail1) && (0xd5 == tail2) ) {
+                    n->type = ST_TYPE;
+                } else {
+                    PB_CHECK(0);
+                }
+
+            } else if ( (SO_UINT32 == PB_PTR_UINT8(pb)) || (SO_UINT64 == PB_PTR_UINT8(pb)) ) {
+                uint32_t constr;
+                PB_SEEK(pb, 1);
+
+                if ( SO_UINT32 == PB_PTR_UINT8(pb) ) {
+                    PB_READ_UINT32(pb, n->int_val);
+                } else {
+                    PB_READ_UINT64(pb, n->int_val);
+                }
+
+                PB_READ_UINT32(pb, constr);
+                if ( SC_MINSIZE == constr ) {
+                    n->type = ST_MINSIZE;
+                } else if ( SC_MAXSIZE == constr ) {
+                    n->type = ST_MAXSIZE;
+                } else if ( SC_SRCAVAIL == constr ) {
+                    n->type = ST_SRCAVAIL;
+                } else if ( SC_SRCCMPLETE == constr ) {
+                    n->type = ST_SRCCOMLETE;
+                } else if ( SC_MINBITRATE == constr ) {
+                    n->type = ST_MINBITRATE;
+                } else if ( SC_MINLENGTH == constr ) {
+                    n->type = ST_MINLENGTH;
+                } else {
+                    PB_CHECK(0);
+                }
+            }
+
+        }
+
+        n = n->parent;
+    }
+
+    send_search_result(client, &root);
+
+    return 0;
+
+malformed:
+    return -1;
+}
+
+static int
 process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *client )
 {
-	// verify portcheck state
+	// todo: verify portcheck state
 
     switch ( opcode ) {
     case OP_LOGINREQUEST:
-        PB_CHECK( process_login_request(pb, client) == 0 );
+        PB_CHECK( process_login_request(pb, client) >= 0 );
         return 0;
 
 	case OP_GETSERVERLIST:
-		// todo: implement me
+		send_server_ident(client);
+		send_server_list(client);
 		return 0;
 
 	case OP_SEARCHREQUEST:
-		// todo: implement me
+		process_search_request(pb, client);
+		return 0;
+
+	case OP_QUERY_MORE_RESULT:
+		// may be send op_reject?
+		return 0;
+
+	case OP_DISCONNECT:
+		// todo: remove client
 		return 0;
 
 	case OP_GETSOURCES:
@@ -256,7 +375,7 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *clien
 		return 0;
 
 	case OP_OFFERFILES:
-		PB_CHECK( process_offer_files(pb, client) == 0 );
+		PB_CHECK( process_offer_files(pb, client) >= 0 );
 		return 0;
 
     default:
@@ -302,6 +421,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 		if ( PROTO_PACKED == header->proto ) {
 			unsigned char *unpacked;
 			unsigned long unpacked_len = header->length*10 + 300;
+			// todo: define and use max packet size
 			if ( unpacked_len > 50000 ) {
 				 unpacked_len = 50000;
 			}

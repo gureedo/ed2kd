@@ -23,12 +23,26 @@ void client_delete( struct e_client *client )
 #ifdef DEBUG
 	ED2KD_LOGDBG("client removed (%s:%d)", client->dbg.ip_str, client->port);
 #endif
-
 	if( client->bev_cli ) bufferevent_free(client->bev_cli);
 	if( client->bev_srv ) bufferevent_free(client->bev_srv);
+
+	db_remove_source(client);
+
     free(client);
 
 	ed2kd_rt()->user_count--;
+}
+
+void send_id_change( struct e_client *client )
+{
+	struct packet_id_change data;
+	data.proto = PROTO_EDONKEY;
+	data.length = sizeof data - sizeof(struct packet_header);
+	data.opcode = OP_IDCHANGE;
+	data.user_id = client->ip;
+	data.tcp_flags = ED2KD_SRV_TCP_FLAGS;
+
+	bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
 void send_server_message( struct e_client *client, const char *msg, uint16_t len )
@@ -41,18 +55,6 @@ void send_server_message( struct e_client *client, const char *msg, uint16_t len
 
     bufferevent_write(client->bev_srv, &data, sizeof data);
     bufferevent_write(client->bev_srv, msg, len);
-}
-
-void send_id_change( struct e_client *client )
-{
-    struct packet_id_change data;
-    data.proto = PROTO_EDONKEY;
-    data.length = sizeof data - sizeof(struct packet_header);
-    data.opcode = OP_IDCHANGE;
-    data.user_id = client->ip;
-    data.tcp_flags = ED2KD_SRV_TCP_FLAGS;
-
-    bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
 void send_server_status( struct e_client *client )
@@ -69,12 +71,36 @@ void send_server_status( struct e_client *client )
 
 void send_server_ident( struct e_client *client )
 {
-    //struct evbuffer *outbuf = bufferevent_get_output(client->bev);
+	struct packet_server_ident data;
+	data.proto = PROTO_EDONKEY;
+	data.length = sizeof data - sizeof(struct packet_header);
+	data.opcode = OP_SERVERSTATUS;
+	memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
+	data.ip = ed2kd_cfg()->listen_addr_int;
+	data.port = ed2kd_cfg()->listen_port;
+	data.tag_count = 2;
+	
+	//ST_SERVERNAME
+	//ST_DESCRIPTION
+	
+	bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
-void send_search_result( struct e_client *client )
+void send_server_list( struct e_client *client )
 {
-    //struct evbuffer *outbuf = bufferevent_get_output(client->bev);
+
+}
+
+void send_search_result( struct e_client *client, struct search_node *search_tree )
+{
+    size_t count = MAX_SEARCH_FILES;
+    struct e_file *files = (struct e_file*)malloc(sizeof(struct e_file)*count);
+    
+    if ( db_search_file(search_tree, files, &count) >= 0 ) {
+
+    }
+
+    free(files);
 }
 
 void send_found_sources( struct e_client *client, const unsigned char *hash )
@@ -83,7 +109,7 @@ void send_found_sources( struct e_client *client, const unsigned char *hash )
 	struct e_source sources[MAX_FOUND_SOURCES];
 	struct packet_found_sources data;
 
-	src_count = db_get_sources(hash, sources, &src_count);
+	db_get_sources(hash, sources, &src_count);
 
 	data.proto = PROTO_EDONKEY;
 	memcpy(data.hash, hash, sizeof data.hash);
@@ -108,7 +134,6 @@ void client_portcheck_finish( struct e_client *client )
 
     send_id_change(client);
     send_server_message(client, ed2kd_cfg()->welcome_msg, ed2kd_cfg()->welcome_msg_len);
-	// todo: server ident?
 }
 
 void client_portcheck_failed( struct e_client *client )

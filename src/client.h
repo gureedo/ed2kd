@@ -2,8 +2,8 @@
 #define CLIENT_H
 
 #define MAX_NICK_LEN		255
-// max sources per one packet
 #define	MAX_FOUND_SOURCES	200
+#define	MAX_FOUND_FILES 	200
 
 
 struct e_client {
@@ -36,10 +36,18 @@ void client_delete( struct e_client *client );
 void client_portcheck_finish( struct e_client *client );
 void client_portcheck_failed( struct e_client *client );
 
-void send_server_message( struct e_client *client, const char *msg, uint16_t msg_len );
-
 void send_id_change( struct e_client *client );
 
+void send_server_message( struct e_client *client, const char *msg, uint16_t msg_len );
+
+void send_server_ident( struct e_client *client );
+
+void send_server_list( struct e_client *client );
+
+void send_search_result( struct e_client *client, struct search_node *search_tree );
+
 void send_found_sources( struct e_client *client, const unsigned char *hash );
+
+void send_reject( struct e_client *client );
 
 #endif // CLIENT_H

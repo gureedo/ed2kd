@@ -10,6 +10,9 @@ struct packet_buffer {
     (pb)->ptr = (buf);         \
     (pb)->end = (buf) + (len);
 
+#define PB_END(pb) \
+    ((pb)->ptr < (pb)->end)
+
 #define PB_CHECK(stmt) \
     if ( !(stmt) ) goto malformed
 
@@ -36,6 +39,11 @@ struct packet_buffer {
 #define PB_READ_UINT64(pb, val)     \
     (val) = *(uint64_t*)(pb)->ptr;  \
     PB_SEEK((pb), sizeof(uint64_t))
+
+#define PB_PTR_UINT8(pb)        *(uint8_t*)(pb)->ptr
+#define PB_PTR_UINT16(pb)       *(uint16_t*)(pb)->ptr
+#define PB_PTR_UINT32(pb)       *(uint32_t*)(pb)->ptr
+#define PB_PTR_UINT64(pb)       *(uint64_t*)(pb)->ptr
 
 #define PB_READ_STRING(pb, dst, max_len) \
 {	\

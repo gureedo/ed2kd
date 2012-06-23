@@ -1,6 +1,13 @@
+# ms vs stuff
+ipch
+*.suo
+*.sdf
+*.opensdf
+*.user
+
+# folders
 3rdparty
 lib
 bin
 junk
 doxy
-ipch
