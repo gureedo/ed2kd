@@ -5,7 +5,6 @@
 #define	MAX_FOUND_SOURCES	200
 #define	MAX_FOUND_FILES 	200
 
-
 struct e_client {
     unsigned char hash[16];
     uint32_t ip;
@@ -49,5 +48,7 @@ void send_search_result( struct e_client *client, struct search_node *search_tre
 void send_found_sources( struct e_client *client, const unsigned char *hash );
 
 void send_reject( struct e_client *client );
+
+void write_search_file( struct evbuffer *buf, const struct search_file *file );
 
 #endif // CLIENT_H

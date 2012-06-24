@@ -130,7 +130,7 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 	for( i=0; i<count; ++i ) {
 		uint32_t tag_count, id;
 		uint16_t port;
-		struct e_file file = {0};
+		struct pub_file file = {0};
 
 		PB_MEMCPY(pb, file.hash, sizeof file.hash);
 
@@ -168,7 +168,7 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					PB_CHECK( TT_UINT32 == tag_hdr->type );
 					PB_READ_UINT32(pb, file.media_bitrate);
 				} else if( memcmp(TNS_MEDIA_CODEC, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
-					uint16_t len = MAX_FILETAG_LEN;
+					uint16_t len = MAX_MCODEC_LEN;
 					PB_CHECK(TT_STRING == tag_hdr->type);
 					PB_READ_STRING(pb, file.media_codec, len);
 					file.media_codec[len] = 0;
@@ -244,14 +244,17 @@ process_search_request( struct packet_buffer *pb, struct e_client *client )
 
     while ( n ) {
         if( (ST_AND <= n->type) && (ST_NOT >= n->type) ) {
-            struct search_node *new_node = (struct search_node*)alloca(sizeof(struct search_node));
-            memset(new_node, 0, sizeof(struct search_node));
-            new_node->parent = n;
             if ( !n->left ) {
+                struct search_node *new_node = (struct search_node*)alloca(sizeof(struct search_node));
+                memset(new_node, 0, sizeof(struct search_node));
+                new_node->parent = n;
                 n->left = new_node;
                 n = new_node;
                 continue;
             } else if ( !n->right ) {
+                struct search_node *new_node = (struct search_node*)alloca(sizeof(struct search_node));
+                memset(new_node, 0, sizeof(struct search_node));
+                new_node->parent = n;
                 n->right = new_node;
                 n = new_node;
                 continue;
@@ -304,9 +307,10 @@ process_search_request( struct packet_buffer *pb, struct e_client *client )
 
             } else if ( (SO_UINT32 == PB_PTR_UINT8(pb)) || (SO_UINT64 == PB_PTR_UINT8(pb)) ) {
                 uint32_t constr;
-                PB_SEEK(pb, 1);
-
-                if ( SO_UINT32 == PB_PTR_UINT8(pb) ) {
+                uint8_t type;
+                PB_READ_UINT8(pb, type);
+                
+                if ( SO_UINT32 == type ) {
                     PB_READ_UINT32(pb, n->int_val);
                 } else {
                     PB_READ_UINT64(pb, n->int_val);

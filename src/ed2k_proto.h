@@ -266,8 +266,8 @@ enum search_operator
 };
 
 enum search_constraint {
-    SC_MINSIZE      = 0x01000101,
-    SC_MAXSIZE      = 0x02000101,
+    SC_MINSIZE      = 0x02000101,
+    SC_MAXSIZE      = 0x02000102,
     SC_SRCAVAIL     = 0x15000101,
     SC_SRCCMPLETE   = 0x30000101,
     SC_MINBITRATE   = 0xd4000101,

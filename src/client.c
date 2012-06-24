@@ -96,151 +96,146 @@ void send_server_list( struct e_client *client )
 void send_search_result( struct e_client *client, struct search_node *search_tree )
 {
     size_t count = MAX_SEARCH_FILES;
-    struct e_file *files = (struct e_file*)malloc(sizeof(struct e_file)*count);
+    struct evbuffer *buf = evbuffer_new();
+    struct packet_search_result header = {0};
+
+    header.proto = PROTO_EDONKEY;
+    //header.length = 0;
+    header.opcode = OP_SEARCHRESULT;
+    //header.files_count = 0;
+    evbuffer_add(buf, &header, sizeof header);
     
-    if ( db_search_file(search_tree, files, &count) >= 0 ) {
-        size_t i;
-        struct packet_search_result header = {0};
-        struct evbuffer *buf = evbuffer_new();
-
-        header.proto = PROTO_EDONKEY;
-        //header.length = 0;
-        header.opcode = OP_SEARCHRESULT;
-        header.files_count = count;
-        evbuffer_add(buf, &header, sizeof header);
-
-        for ( i=0; i<count; ++i ) {
-            struct search_file_entry sfe;
-            
-            memcpy(sfe.hash, files[i].hash, sizeof sfe.hash);
-            sfe.id = client->ip;
-            sfe.port = client->port;
-            sfe.tag_count = 1+ 1+ (0!=files[i].type)+ (files[i].ext_len>0)+ 1+ 1+ (files[i].media_length>0)+ (files[i].media_length>0)+ (files[i].media_codec_len>0);
-            evbuffer_add(buf, &sfe, sizeof sfe);
-
-            {
-                struct tag_header th;
-                size_t data_len = sizeof(uint16_t)+files[i].name_len;
-                unsigned char *data = (unsigned char*)alloca(data_len);
-
-                th.type = TT_STRING;
-                th.name_len = 1;
-                *th.name = TN_FILENAME;
-                *(uint16_t*)data = files[i].name_len;
-                memcpy(data+sizeof(uint16_t), files[i].name, files[i].name_len);
-             
-                evbuffer_add(buf, &th, sizeof th);
-                evbuffer_add(buf, data, data_len);
-            }
-
-            {
-                struct tag_header th;
-                th.type = TT_UINT64;
-                th.name_len = 1;
-                *th.name = TN_FILESIZE;
-
-                evbuffer_add(buf, &th, sizeof th);
-                evbuffer_add(buf, &files[i].size, sizeof files[i].size);
-            }
-
-            /*if ( files[i].type ) {
-                struct tag_header th;
-                th.type = TT_STRING;
-                th.name_len = 1;
-                *th.name = TN_FILETYPE;
-                //len
-                //type
-            }*/
-
-            if ( files[i].ext_len ) {
-                struct tag_header th;
-                size_t data_len = sizeof(uint16_t)+files[i].ext_len;
-                unsigned char *data = (unsigned char*)alloca(data_len);
-
-                th.type = TT_STRING;
-                th.name_len = 1;
-                *th.name = TN_FILEFORMAT;
-                *(uint16_t*)data = files[i].name_len;
-                memcpy(data+sizeof(uint16_t), files[i].ext, files[i].ext_len);
-
-                evbuffer_add(buf, &th, sizeof th);
-                evbuffer_add(buf, data, data_len);
-            }
-
-            {
-                struct tag_header th;
-                th.type = TT_UINT32;
-                th.name_len = 1;
-                *th.name = TN_SOURCES;
-
-                evbuffer_add(buf, &th, sizeof th);
-                evbuffer_add(buf, &files[i].srcavail, sizeof files[i].srcavail);
-            }
-
-            {
-                struct tag_header th;
-                th.type = TT_UINT32;
-                th.name_len = 1;
-                *th.name = TN_COMPLETE_SOURCES;
-
-                evbuffer_add(buf, &th, sizeof th);
-                evbuffer_add(buf, &files[i].srccomplete, sizeof files[i].srccomplete);
-            }
-
-            if ( files[i].media_length ) {
-                uint16_t name_len = sizeof(TNS_MEDIA_LENGTH)-1;
-                size_t th_len = sizeof(struct tag_header)-1+name_len;
-                struct tag_header *th = (struct tag_header*)alloca(th_len);
-                th->type = TT_UINT32;
-                th->name_len = name_len;
-                memcpy(th->name, TNS_MEDIA_LENGTH, name_len);
-
-                evbuffer_add(buf, th, th_len);
-                evbuffer_add(buf, &files[i].media_length, sizeof files[i].media_length);
-            }
-            
-            if ( files[i].media_bitrate ) {
-                uint16_t name_len = sizeof(TNS_MEDIA_BITRATE)-1;
-                size_t th_len = sizeof(struct tag_header)-1+name_len;
-                struct tag_header *th = (struct tag_header*)alloca(th_len);
-                th->type = TT_UINT32;
-                th->name_len = name_len;
-                memcpy(th->name, TNS_MEDIA_BITRATE, name_len);
-
-                evbuffer_add(buf, th, th_len);
-                evbuffer_add(buf, &files[i].media_bitrate, sizeof files[i].media_bitrate);
-            }
-            
-            if ( files[i].media_codec_len ) {
-                uint16_t name_len = sizeof(TNS_MEDIA_CODEC)-1;
-                size_t th_len = sizeof(struct tag_header)-1+name_len;
-                struct tag_header *th = (struct tag_header*)alloca(th_len);
-
-                size_t data_len = sizeof(uint16_t)+files[i].media_codec_len;
-                unsigned char *data = (unsigned char*)alloca(data_len);
-
-                th->type = TT_UINT32;
-                th->name_len = name_len;
-                memcpy(th->name, TNS_MEDIA_CODEC, name_len);
-
-                *(uint16_t*)data = files[i].media_codec_len;
-                memcpy(data+sizeof(uint16_t), files[i].media_codec, files[i].media_codec_len);
-
-                evbuffer_add(buf, th, th_len);
-                evbuffer_add(buf, data, data_len);
-            }
-        }
-
-        {
-            struct packet_header *ph = (struct packet_header*)evbuffer_pullup(buf, sizeof(struct packet_header));
-            ph->length = evbuffer_get_length(buf) - sizeof(struct packet_header);
-        }
+    if ( db_search_file(search_tree, buf, &count) >= 0 ) {
+        struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof(struct packet_search_result));
+        ph->length = evbuffer_get_length(buf) - sizeof(struct packet_header);
+        ph->files_count = count;
 
         bufferevent_write_buffer(client->bev_srv, buf);
         evbuffer_free(buf);
     }
+}
 
-    free(files);
+void write_search_file( struct evbuffer *buf, const struct search_file *file )
+{
+    struct search_file_entry sfe;
+            
+    memcpy(sfe.hash, file->hash, sizeof sfe.hash);
+    sfe.id = file->client_ip;
+    sfe.port = file->client_port;
+    sfe.tag_count = 1+ 1+ /*(0!=file->type)+*/ (file->ext_len>0)+ 1+ 1+ (file->media_length>0)+ (file->media_length>0)+ (file->media_codec_len>0);
+    evbuffer_add(buf, &sfe, sizeof sfe);
+
+    {
+        struct tag_header th;
+        size_t data_len = sizeof(uint16_t)+file->name_len;
+        unsigned char *data = (unsigned char*)alloca(data_len);
+
+        th.type = TT_STRING;
+        th.name_len = 1;
+        *th.name = TN_FILENAME;
+        *(uint16_t*)data = file->name_len;
+        memcpy(data+sizeof(uint16_t), file->name, file->name_len);
+             
+        evbuffer_add(buf, &th, sizeof th);
+        evbuffer_add(buf, data, data_len);
+    }
+
+    {
+        struct tag_header th;
+        th.type = TT_UINT64;
+        th.name_len = 1;
+        *th.name = TN_FILESIZE;
+
+        evbuffer_add(buf, &th, sizeof th);
+        evbuffer_add(buf, &file->size, sizeof file->size);
+    }
+
+    /*if ( files[i].type ) {
+        struct tag_header th;
+        th.type = TT_STRING;
+        th.name_len = 1;
+        *th.name = TN_FILETYPE;
+        //len
+        //type
+    }*/
+
+    if ( file->ext_len ) {
+        struct tag_header th;
+        size_t data_len = sizeof(uint16_t)+file->ext_len;
+        unsigned char *data = (unsigned char*)alloca(data_len);
+
+        th.type = TT_STRING;
+        th.name_len = 1;
+        *th.name = TN_FILEFORMAT;
+        *(uint16_t*)data = file->ext_len;
+        memcpy(data+sizeof(uint16_t), file->ext, file->ext_len);
+
+        evbuffer_add(buf, &th, sizeof th);
+        evbuffer_add(buf, data, data_len);
+    }
+
+    {
+        struct tag_header th;
+        th.type = TT_UINT32;
+        th.name_len = 1;
+        *th.name = TN_SOURCES;
+
+        evbuffer_add(buf, &th, sizeof th);
+        evbuffer_add(buf, &file->srcavail, sizeof file->srcavail);
+    }
+
+    {
+        struct tag_header th;
+        th.type = TT_UINT32;
+        th.name_len = 1;
+        *th.name = TN_COMPLETE_SOURCES;
+
+        evbuffer_add(buf, &th, sizeof th);
+        evbuffer_add(buf, &file->srccomplete, sizeof file->srccomplete);
+    }
+
+    if ( file->media_length ) {
+        uint16_t name_len = sizeof(TNS_MEDIA_LENGTH)-1;
+        size_t th_len = sizeof(struct tag_header)-1+name_len;
+        struct tag_header *th = (struct tag_header*)alloca(th_len);
+        th->type = TT_UINT32;
+        th->name_len = name_len;
+        memcpy(th->name, TNS_MEDIA_LENGTH, name_len);
+
+        evbuffer_add(buf, th, th_len);
+        evbuffer_add(buf, &file->media_length, sizeof file->media_length);
+    }
+            
+    if ( file->media_bitrate ) {
+        uint16_t name_len = sizeof(TNS_MEDIA_BITRATE)-1;
+        size_t th_len = sizeof(struct tag_header)-1+name_len;
+        struct tag_header *th = (struct tag_header*)alloca(th_len);
+        th->type = TT_UINT32;
+        th->name_len = name_len;
+        memcpy(th->name, TNS_MEDIA_BITRATE, name_len);
+
+        evbuffer_add(buf, th, th_len);
+        evbuffer_add(buf, &file->media_bitrate, sizeof file->media_bitrate);
+    }
+            
+    if ( file->media_codec_len ) {
+        uint16_t name_len = sizeof(TNS_MEDIA_CODEC)-1;
+        size_t th_len = sizeof(struct tag_header)-1+name_len;
+        struct tag_header *th = (struct tag_header*)alloca(th_len);
+
+        size_t data_len = sizeof(uint16_t)+file->media_codec_len;
+        unsigned char *data = (unsigned char*)alloca(data_len);
+
+        th->type = TT_UINT32;
+        th->name_len = name_len;
+        memcpy(th->name, TNS_MEDIA_CODEC, name_len);
+
+        *(uint16_t*)data = file->media_codec_len;
+        memcpy(data+sizeof(uint16_t), file->media_codec, file->media_codec_len);
+
+        evbuffer_add(buf, th, th_len);
+        evbuffer_add(buf, data, data_len);
+    }
 }
 
 void send_found_sources( struct e_client *client, const unsigned char *hash )

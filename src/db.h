@@ -3,9 +3,9 @@
 
 #include "packed_struct.h"
 
-#define MAX_FILENAME_LEN	255
-#define MAX_FILETAG_LEN		64
-#define MAX_FILEEXT_LEN      16
+#define MAX_FILENAME_LEN    255
+#define MAX_MCODEC_LEN      64
+#define MAX_FILEEXT_LEN     16
 
 PACKED_STRUCT(
 struct e_source {
@@ -14,21 +14,35 @@ struct e_source {
 };
 )
 
-struct e_file {
+struct pub_file {
 	unsigned char hash[16];
 	uint16_t name_len;
 	char name[MAX_FILENAME_LEN+1];
 	uint64_t size;
 	uint8_t rating;
 	uint32_t type;
-    uint16_t ext_len;
-    uint16_t ext[MAX_FILEEXT_LEN+1];
 	uint32_t media_length;
 	uint32_t media_bitrate;
     uint16_t media_codec_len;
-	char media_codec[MAX_FILETAG_LEN+1];
+	char media_codec[MAX_MCODEC_LEN+1];
     unsigned complete:1;
-    // fields used only for search results
+};
+
+struct search_file {
+    const unsigned char *hash;
+    uint32_t client_ip;
+    uint16_t client_port;
+    uint16_t name_len;
+    const char *name;
+    uint64_t size;
+    uint32_t type;
+    uint8_t rating;
+    uint16_t ext_len;
+    const char *ext;
+    uint32_t media_length;
+    uint32_t media_bitrate;
+    uint16_t media_codec_len;
+    const char *media_codec;
     uint32_t srcavail;
     uint32_t srccomplete;
 };
@@ -75,9 +89,9 @@ struct search_node {
 int db_open();
 int db_close();
 
-int db_add_file( const struct e_file *file, const struct e_client *owner );
+int db_add_file( const struct pub_file *file, const struct e_client *owner );
 int db_remove_source( const struct e_client *owner );
-int db_search_file(struct search_node *tree, struct e_file *files, size_t *count );
+int db_search_file(struct search_node *tree, struct evbuffer *buf, size_t *count );
 int db_get_sources( const unsigned char *hash, struct e_source *buf, size_t *size );
 
 
