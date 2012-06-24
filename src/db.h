@@ -5,6 +5,7 @@
 
 #define MAX_FILENAME_LEN	255
 #define MAX_FILETAG_LEN		64
+#define MAX_FILEEXT_LEN      16
 
 PACKED_STRUCT(
 struct e_source {
@@ -19,13 +20,17 @@ struct e_file {
 	char name[MAX_FILENAME_LEN+1];
 	uint64_t size;
 	uint8_t rating;
-	uint8_t type;
+	uint32_t type;
+    uint16_t ext_len;
+    uint16_t ext[MAX_FILEEXT_LEN+1];
 	uint32_t media_length;
 	uint32_t media_bitrate;
     uint16_t media_codec_len;
 	char media_codec[MAX_FILETAG_LEN+1];
-    // flags
-    unsigned complete:1; 
+    unsigned complete:1;
+    // fields used only for search results
+    uint32_t srcavail;
+    uint32_t srccomplete;
 };
 
 enum search_node_type {

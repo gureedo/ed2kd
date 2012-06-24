@@ -70,7 +70,7 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
 
         PB_SKIP_TAGHDR(pb, tag_hdr);
         
-		switch ( tag_hdr->name ) {
+		switch ( *tag_hdr->name ) {
         case TN_NAME: {
             PB_CHECK(TT_STRING == tag_hdr->type);
 			client->nick_len = MAX_NICK_LEN;
@@ -176,7 +176,7 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					PB_CHECK(0);
 				}
 			} else {
-				switch ( tag_hdr->name ) {
+				switch ( *tag_hdr->name ) {
 
 				case TN_FILENAME:
 					PB_CHECK(TT_STRING == tag_hdr->type);
@@ -191,11 +191,11 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					PB_READ_UINT32(pb, file.size);
 					break;
 
-				case FT_FILESIZE_HI: {
+				case TN_FILESIZE_HI: {
 					uint32_t size_hi;
 					PB_CHECK(TT_UINT32 == tag_hdr->type);
 					PB_READ_UINT32(pb, size_hi);
-					file.size = (uint64_t)size_hi << 32;
+					file.size += (uint64_t)size_hi << 32;
 					break;
 				}
 
@@ -208,9 +208,9 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					if ( TT_UINT32 == tag_hdr->type ) {
 						PB_READ_UINT32(pb, file.type);
 					} else if ( TT_STRING == tag_hdr->type ) {
-						// todo: read string file type and find its integer representation
                         uint16_t len;
                         PB_READ_UINT16(pb, len);
+                        // todo: read string file type and find its integer representation
                         PB_SEEK(pb, len);
 					} else {
 						PB_CHECK(0);

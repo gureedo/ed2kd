@@ -41,7 +41,7 @@ enum packet_opcode {
     OP_QUERY_MORE_RESULT		= 0x21,	// (null)
     //OP_GETSOURCES_OBFU        = 0x23,
     //OP_SERVERLIST				= 0x32,	// <count 1>(<IP 4><PORT 2>)[count] server->client
-    //OP_SEARCHRESULT			= 0x33,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
+    OP_SEARCHRESULT             = 0x33,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
     OP_SERVERSTATUS             = 0x34, // <USERS 4><FILES 4>
     //OP_CALLBACKREQUESTED		= 0x35,	// <IP 4><PORT 2>
     //OP_CALLBACK_FAIL			= 0x36,	// (null notverified)
@@ -108,6 +108,24 @@ struct packet_server_ident {
 )
 
 PACKED_STRUCT(
+struct packet_search_result {
+    uint8_t proto;
+    uint32_t length;
+    uint8_t opcode;
+    uint32_t files_count;
+};
+)
+
+PACKED_STRUCT(
+struct search_file_entry {
+    unsigned char hash[HASH_SIZE];
+    uint32_t id;
+    uint16_t port;
+    uint32_t tag_count;
+};
+)
+
+PACKED_STRUCT(
 struct packet_found_sources {
 	uint8_t proto;
 	uint32_t length;
@@ -116,6 +134,7 @@ struct packet_found_sources {
 	uint32_t count;
 };
 )
+
 
 PACKED_STRUCT(
 struct packet_hello {
@@ -147,25 +166,7 @@ struct tag_header
 {
     uint8_t type;
     uint16_t name_len;
-    unsigned char name;
-};
-)
-
-PACKED_STRUCT(
-struct tag_value {
-    union {
-        char val_hash16[16];
-        struct {
-            uint16_t val_str_len;
-            char val_str;
-        };
-        uint32_t val_uint32;
-        //float32_t val_float32;
-        //uint8_t value_bool;
-        uint8_t val_uint8;
-        uint16_t val_uint16;
-        uint64_t val_uint64;
-    };
+    unsigned char name[1];
 };
 )
 
@@ -210,11 +211,14 @@ enum tag_name
     TN_SERVER_FLAGS             = 0x20,
     TN_EMULE_VERSION            = 0xFB,
 
-	// OP_OFFERFILES
+	// OP_OFFERFILES, OP_SEARCHRESULT
 	TN_FILENAME					= 0x01,
 	TN_FILESIZE					= 0x02,
 	TN_FILETYPE					= 0x03,
-	FT_FILESIZE_HI				= 0x3A,
+    TN_FILEFORMAT               = 0x04,
+    TN_SOURCES                  = 0x15,
+    TN_COMPLETE_SOURCES         = 0x30,
+	TN_FILESIZE_HI				= 0x3A,
 	TN_FILERATING				= 0xF7,
 
 	// OP_SERVERIDENT
@@ -226,6 +230,16 @@ enum tag_name
 #define	TNS_MEDIA_LENGTH	"length"
 #define	TNS_MEDIA_BITRATE	"bitrate"
 #define	TNS_MEDIA_CODEC		"codec"
+
+// file types
+#define	FTS_AUDIO	        "Audio"
+#define	FTS_VIDEO           "Video"
+#define	FTS_IMAGE           "Image"
+#define	FTS_DOCUMENT		"Doc"
+#define	FTS_PROGRAM		    "Pro"
+#define	FTS_ARCHIVE		    "Arc"
+#define	FTS_CDIMAGE		    "Iso"
+#define FTS_EMULECOLLECTION	"EmuleCollection"
 
 enum file_type
 {

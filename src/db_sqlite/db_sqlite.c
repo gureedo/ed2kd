@@ -25,9 +25,11 @@ sdbm( const unsigned char *str, size_t length )
 #define MAX_SEARCH_QUERY_LEN  1024
 #define MAX_NAME_TERM_LEN     1024
 
-#define DB_CHECK(x) if (!(x)) goto failed;
-#define MAKE_FID(x) sdbm((x), 16)
-#define MAKE_SID(x) ( ((uint64_t)(x)->ip<<32) & (uint64_t)(x)->port )
+#define DB_CHECK(x)         if (!(x)) goto failed;
+#define MAKE_FID(x)         sdbm((x), 16)
+#define MAKE_SID(x)         ( ((uint64_t)(x)->ip<<32) & (uint64_t)(x)->port )
+#define GET_SID_IP(sid)     (uint32_t)((sid)>>32)
+#define GET_SID_PORT(sid)   (uint16_t)(sid)
 
 static sqlite3 *g_db;
 
@@ -50,7 +52,8 @@ int db_open()
 		"CREATE TABLE IF NOT EXISTS sources ("
 		"	fid INTEGER NOT NULL,"
 		"	sid INTEGER NOT NULL,"
-        "   complete INTEGER"
+        "   complete INTEGER,"
+        "   rating INTEGER"
 		");"
 		"CREATE INDEX IF NOT EXISTS souces_hash_i"
 		"	ON sources(fid);"
@@ -72,11 +75,9 @@ int db_open()
 
         "CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN"
         "   INSERT INTO fnames(docid, name) VALUES(new.rowid, new.name);"
-        "   new.last_seen = strftime('%s', 'now');"
         "END;"
         "CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN"
         "   INSERT INTO fnames(docid, name) VALUES(new.rowid, new.name);"
-        "   new.last_seen = strftime('%s', 'now');"
         "END;"
 	;
 
@@ -108,10 +109,10 @@ int db_close()
 int db_add_file( const struct e_file *file, const struct e_client *owner )
 {
     static const char query1[] = 
-        "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec) "
-        "   VALUES(?,?,?,?,?,?,?,?,?)";
+        "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec,last_seen) "
+        "   VALUES(?,?,?,?,?,?,?,?,?,strftime('%s', 'now'))";
     static const char query2[] = 
-        "INSERT INTO sources(fid,sid,complete) VALUES(?,?,?)";
+        "INSERT INTO sources(fid,sid,complete,rating) VALUES(?,?,?,?)";
 
     sqlite3_stmt *stmt;
 	char *tail;
@@ -122,6 +123,7 @@ int db_add_file( const struct e_file *file, const struct e_client *owner )
 
     // find extension
     ext = file->name + file->name_len-1;
+    ext_len = 0;
     while ( (file->name >= ext) && ('.' != *ext) ) {
         --ext;
         ++ext_len;
@@ -146,6 +148,7 @@ int db_add_file( const struct e_file *file, const struct e_client *owner )
 	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, fid) );
 	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, MAKE_SID(owner)) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->complete) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->rating) );
 	DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
 	sqlite3_finalize(stmt);
 
@@ -176,6 +179,7 @@ failed:
 	return -1;
 }
 
+// todo: buffer overflow aware
 int db_search_file( struct search_node *snode, struct e_file *files, size_t *count )
 {
     sqlite3_stmt *stmt;
@@ -187,7 +191,7 @@ int db_search_file( struct search_node *snode, struct e_file *files, size_t *cou
     uint64_t minsize=0, maxsize=0, srcavail=0, srccomplete=0, minbitrate=0, minlength=0;
     struct search_node *ext_node, *codec_node;
 
-    strcat(query, "SELECT f.hash,f.name,f.size FROM fnames n JOIN files f ON f.id = n.docid WHERE fnames MATCH ?");
+    strcat(query, "SELECT f.hash,f.name,f.size FROM fnames n JOIN files f ON f.fid = n.docid WHERE fnames MATCH ?");
 
     while ( snode ) {
         if ( (ST_AND <= snode->type) && (ST_NOT >= snode->type) ) {
@@ -320,8 +324,6 @@ int db_search_file( struct search_node *snode, struct e_file *files, size_t *cou
         //DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, minlength) );
     }
 
-
-
     memset(files, 0, sizeof(struct e_file)*(*count));
     i = 0;
     while ( ((err = sqlite3_step(stmt)) == SQLITE_ROW) && (i < *count) ) {
@@ -330,8 +332,8 @@ int db_search_file( struct search_node *snode, struct e_file *files, size_t *cou
         memcpy(files[i].hash, sqlite3_column_blob(stmt, col++), sizeof(files[i].hash));
         
         files[i].name_len = sqlite3_column_bytes(stmt, col);
-        strncpy(files[i].name, (const char*)sqlite3_column_text(stmt, col++), 
-            files[i].name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : files[i].name_len);
+        files[i].name_len = files[i].name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : files[i].name_len;
+        strncpy(files[i].name, (const char*)sqlite3_column_text(stmt, col++), files[i].name_len);
 
         files[i].size = sqlite3_column_int64(stmt, col++);
         //files[i].srcavail = sqlite3_column_int64(stmt, col++);
@@ -366,36 +368,23 @@ int db_get_sources( const unsigned char *hash, struct e_source *sources, size_t 
     size_t i;
     int err;
 	static const char query[] = 
-		"SELECT source_id FROM sources WHERE hash_id=? LIMIT ?";
+		"SELECT sid FROM sources WHERE fid=? LIMIT ?";
 
 	DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
-    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, sdbm(hash, 16)) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, MAKE_FID(hash)) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, 2, *count) );
 
     i=0;
     while ( ((err = sqlite3_step(stmt)) == SQLITE_ROW) && (i < *count) ) {
-
-        sources
-        
-        files[i].size = sqlite3_column_int64(stmt, 0);
-        //files[i].srcavail = sqlite3_column_int64(stmt, col++);
-        //files[i].srccomplete = sqlite3_column_int64(stmt, col++);
-        // rating
-        // type
-        //files[i].m_length = sqlite3_column_int64(stmt, col++);
-        //files[i].m_bitrate = sqlite3_column_int64(stmt, col++);
-
-        // codec len
-        //files[i].m_length = sqlite3_column_int64(stmt, col++);
-
+        uint64_t sid = sqlite3_column_int64(stmt, 0);
+        sources[i].ip = GET_SID_IP(sid);
+        sources[i].port = GET_SID_PORT(sid);
         ++i;
     }
 
     DB_CHECK( (i==*count) || (SQLITE_DONE == err) );
 
     *count = i;
-
-
 	return 0;
 
 failed:
