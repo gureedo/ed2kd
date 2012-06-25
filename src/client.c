@@ -41,7 +41,7 @@ void send_id_change( struct e_client *client )
 	data.length = sizeof data - sizeof(struct packet_header);
 	data.opcode = OP_IDCHANGE;
 	data.user_id = client->ip;
-	data.tcp_flags = ED2KD_SRV_TCP_FLAGS;
+	data.tcp_flags = ed2kd_cfg()->srv_tcp_flags;
 
 	bufferevent_write(client->bev_srv, &data, sizeof data);
 }
@@ -240,7 +240,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
 
 void send_found_sources( struct e_client *client, const unsigned char *hash )
 {
-	uint32_t src_count = MAX_FOUND_SOURCES;
+	uint8_t src_count = MAX_FOUND_SOURCES;
 	struct e_source sources[MAX_FOUND_SOURCES];
 	struct packet_found_sources data;
 

@@ -47,8 +47,7 @@ int db_open()
         "   srccomplete INTEGER DEFAULT 0,"
         "   mlength INTEGER,"
         "   mbitrate INTEGER,"
-        "   mcodec TEXT,"
-		"	last_seen INTEGER NOT NULL"
+        "   mcodec TEXT"
 		");"
 
         "UPDATE files SET srcavail=0,srccomplete=0;"
@@ -119,8 +118,8 @@ int db_close()
 int db_add_file( const struct pub_file *file, const struct e_client *owner )
 {
     static const char query1[] = 
-        "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec,last_seen) "
-        "   VALUES(?,?,?,?,?,?,?,?,?,strftime('%s', 'now'))";
+        "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec) "
+        "   VALUES(?,?,?,?,?,?,?,?,?)";
     static const char query2[] = 
         "INSERT INTO sources(fid,sid,complete,rating) VALUES(?,?,?,?)";
 
@@ -194,7 +193,7 @@ failed:
 	return -1;
 }
 
-// todo: buffer overflow protection
+// todo: buffer overflow protection for name_term
 int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *count )
 {
     sqlite3_stmt *stmt = 0;
@@ -393,11 +392,11 @@ failed:
     return -1;
 }
 
-int db_get_sources( const unsigned char *hash, struct e_source *sources, size_t *count )
+int db_get_sources( const unsigned char *hash, struct e_source *sources, uint8_t *count )
 {
 	sqlite3_stmt *stmt;
 	char *tail;
-    size_t i;
+    uint8_t i;
     int err;
 	static const char query[] = 
 		"SELECT sid FROM sources WHERE fid=? LIMIT ?";

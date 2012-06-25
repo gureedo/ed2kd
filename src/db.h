@@ -92,7 +92,7 @@ int db_close();
 int db_add_file( const struct pub_file *file, const struct e_client *owner );
 int db_remove_source( const struct e_client *owner );
 int db_search_file(struct search_node *tree, struct evbuffer *buf, size_t *count );
-int db_get_sources( const unsigned char *hash, struct e_source *buf, size_t *size );
+int db_get_sources( const unsigned char *hash, struct e_source *buf, uint8_t *size );
 
 
 #endif // DB_H 

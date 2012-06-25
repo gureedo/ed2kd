@@ -39,6 +39,8 @@ int ed2kd_init()
     memset(&g_ed2kd_cfg, 0, sizeof(g_ed2kd_cfg));
 	memset(&g_ed2kd_rt, 0, sizeof(g_ed2kd_rt));
 
+    g_ed2kd_cfg.srv_tcp_flags = SRV_TCPFLG_COMPRESSION | SRV_TCPFLG_TYPETAGINTEGER | SRV_TCPFLG_LARGEFILES;
+
     return 0;
 }
 

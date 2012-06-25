@@ -1,15 +1,24 @@
-#ifndef PACKET_H
-#define PACKET_H
+#ifndef ED2K_PROTO_H
+#define ED2K_PROTO_H
 
 #include "packed_struct.h"
 
-// magic constant
+// potocol version
 enum  
 {
 	EDONKEYVERSION = 0x3c
 };
 
 #define HASH_SIZE 16
+
+// Server TCP flags
+#define SRV_TCPFLG_COMPRESSION      0x00000001
+#define SRV_TCPFLG_NEWTAGS          0x00000008
+#define SRV_TCPFLG_UNICODE          0x00000010
+#define SRV_TCPFLG_RELATEDSEARCH    0x00000040
+#define SRV_TCPFLG_TYPETAGINTEGER   0x00000080
+#define SRV_TCPFLG_LARGEFILES       0x00000100
+#define SRV_TCPFLG_TCPOBFUSCATION   0x00000400
 
 enum packet_proto
 {
@@ -20,42 +29,42 @@ enum packet_proto
 
 enum packet_opcode {
     //client2client
-    OP_HELLO                    = 0x01, // 0x10<HASH 16><ID 4><PORT 2><1 Tag_set>
-    OP_HELLOANSWER              = 0x4C, // <HASH 16><ID 4><PORT 2><1 Tag_set><SERVER_IP 4><SERVER_PORT 2>
+    OP_HELLO                    = 0x01, // <hash_size1><hash16><id4><port2><tag_count4>[tags...]
+    OP_HELLOANSWER              = 0x4C, // <hash16><id4><port2><tag_count4>[tags...]<server_ip4><server_port2>
 
     //client2server
-    OP_LOGINREQUEST             = 0x01, // <HASH 16><ID 4><PORT 2><TAG_COUNT 4><TAGS...>
-    OP_REJECT                   = 0x05, // (null)
-    OP_GETSERVERLIST			= 0x14,	// (null)client->server
-    OP_OFFERFILES				= 0x15,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
-    OP_SEARCHREQUEST			= 0x16,	// <Query_Tree>
-    OP_DISCONNECT				= 0x18,	// (not verified)
-    OP_GETSOURCES				= 0x19,	// <HASH 16>
-                                        // v2 <HASH 16><SIZE_4> (17.3) (mandatory on 17.8)
-                                        // v2large <HASH 16><FILESIZE 4(0)><FILESIZE 8> (17.9) (large files only)
-    //OP_SEARCH_USER			= 0x1A,	// <Query_Tree>
-    //OP_CALLBACKREQUEST		= 0x1C,	// <ID 4>
-    //OP_QUERY_CHATS			= 0x1D,	// (deprecated, not supported by server any longer)
-    //OP_CHAT_MESSAGE			= 0x1E,	// (deprecated, not supported by server any longer)
-    //OP_JOIN_ROOM				= 0x1F,	// (deprecated, not supported by server any longer)
-    OP_QUERY_MORE_RESULT		= 0x21,	// (null)
+    OP_LOGINREQUEST             = 0x01, // <hash16><id4><port2><tag_count4>[tags...]
+    OP_REJECT                   = 0x05, // empty
+    OP_GETSERVERLIST			= 0x14,	// empty
+    OP_OFFERFILES				= 0x15,	// <count4>[<hash16><id4><port2><tag_count4>[tags...]...]
+    OP_SEARCHREQUEST			= 0x16,	// <query_tree>
+    OP_DISCONNECT				= 0x18,	// empty
+    OP_GETSOURCES				= 0x19,	// <hash16>
+                                        // //v2 <HASH 16><SIZE_4> (17.3) (mandatory on 17.8)
+                                        // //v2large <HASH 16><FILESIZE 4(0)><FILESIZE 8> (17.9) (large files only)
+    //OP_SEARCH_USER			= 0x1A,	// 
+    //OP_CALLBACKREQUEST		= 0x1C,	// 
+    //OP_QUERY_CHATS			= 0x1D,	// 
+    //OP_CHAT_MESSAGE			= 0x1E,	// 
+    //OP_JOIN_ROOM				= 0x1F,	// 
+    OP_QUERY_MORE_RESULT		= 0x21,	// empty
     //OP_GETSOURCES_OBFU        = 0x23,
-    //OP_SERVERLIST				= 0x32,	// <count 1>(<IP 4><PORT 2>)[count] server->client
-    OP_SEARCHRESULT             = 0x33,	// <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
-    OP_SERVERSTATUS             = 0x34, // <USERS 4><FILES 4>
-    //OP_CALLBACKREQUESTED		= 0x35,	// <IP 4><PORT 2>
-    //OP_CALLBACK_FAIL			= 0x36,	// (null notverified)
-    OP_SERVERMESSAGE            = 0x38, // <len 2><Message len>
-    //OP_CHAT_ROOM_REQUEST		= 0x39,	// (deprecated, not supported by server any longer)
-    //OP_CHAT_BROADCAST			= 0x3A,	// (deprecated, not supported by server any longer)
-    //OP_CHAT_USER_JOIN			= 0x3B,	// (deprecated, not supported by server any longer)
-    //OP_CHAT_USER_LEAVE		= 0x3C,	// (deprecated, not supported by server any longer)
-    //OP_CHAT_USER				= 0x3D,	// (deprecated, not supported by server any longer)
-    OP_IDCHANGE                 = 0x40, // <NEW_ID 4>
-    OP_SERVERIDENT              = 0x41, // <HASH 16><IP 4><PORT 2>{1 TAG_SET}
-    OP_FOUNDSOURCES             = 0x42 // <HASH 16><count 1>(<ID 4><PORT 2>)[count]
-    //OP_USERS_LIST				= 0x43, // <count 4>(<HASH 16><ID 4><PORT 2><1 Tag_set>)[count]
-    //OP_FOUNDSOURCES_OBFU      = 0x44  // <HASH 16><count 1>(<ID 4><PORT 2><obf settings 1>(UserHash16 if obf&0x08))[count]
+    //OP_SERVERLIST				= 0x32,	// 
+    OP_SEARCHRESULT             = 0x33,	// <count4>[<hash16><id4><port2><tag_count4>[tags...]...]
+    OP_SERVERSTATUS             = 0x34, // <users_count4><files_count4>
+    //OP_CALLBACKREQUESTED		= 0x35,	// 
+    //OP_CALLBACK_FAIL			= 0x36,	// 
+    OP_SERVERMESSAGE            = 0x38, // <msg_len2><message>
+    //OP_CHAT_ROOM_REQUEST		= 0x39,	// 
+    //OP_CHAT_BROADCAST			= 0x3A,	// 
+    //OP_CHAT_USER_JOIN			= 0x3B,	// 
+    //OP_CHAT_USER_LEAVE		= 0x3C,	// 
+    //OP_CHAT_USER				= 0x3D,	// 
+    OP_IDCHANGE                 = 0x40, // <id4>
+    OP_SERVERIDENT              = 0x41, // <hash16><ip4><port2><tag_count4>[tags...]
+    OP_FOUNDSOURCES             = 0x42  // <HASH 16><count 1>(<ID 4><PORT 2>)[count]
+    //OP_USERS_LIST				= 0x43, 
+    //OP_FOUNDSOURCES_OBFU      = 0x44  
 };
 
 PACKED_STRUCT(
@@ -67,8 +76,7 @@ struct packet_header {
 
 PACKED_STRUCT(
 struct packet_server_message {
-    uint8_t proto;
-    uint32_t length;
+    struct packet_header;
     uint8_t opcode;
     uint16_t msg_len;
 };
@@ -76,8 +84,7 @@ struct packet_server_message {
 
 PACKED_STRUCT(
 struct packet_id_change {
-    uint8_t proto;
-    uint32_t length;
+    struct packet_header;
     uint8_t opcode;
     uint32_t user_id;
     uint32_t tcp_flags;
@@ -86,8 +93,7 @@ struct packet_id_change {
 
 PACKED_STRUCT(
 struct packet_server_status {
-    uint8_t proto;
-    uint32_t length;
+    struct packet_header;
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
@@ -96,21 +102,18 @@ struct packet_server_status {
 
 PACKED_STRUCT(
 struct packet_server_ident {
-	uint8_t proto;
-	uint32_t length;
+    struct packet_header;
 	uint8_t opcode;
 	unsigned char hash[HASH_SIZE];
 	uint32_t ip;
 	uint16_t port;
 	uint32_t tag_count;
-	// tag set
 };
 )
 
 PACKED_STRUCT(
 struct packet_search_result {
-    uint8_t proto;
-    uint32_t length;
+    struct packet_header;
     uint8_t opcode;
     uint32_t files_count;
 };
@@ -127,19 +130,16 @@ struct search_file_entry {
 
 PACKED_STRUCT(
 struct packet_found_sources {
-	uint8_t proto;
-	uint32_t length;
+    struct packet_header;
 	uint8_t opcode;
 	unsigned char hash[HASH_SIZE];
-	uint32_t count;
+	uint8_t count;
 };
 )
 
-
 PACKED_STRUCT(
 struct packet_hello {
-    uint8_t proto;
-    uint32_t length;
+    struct packet_header;
     uint8_t opcode;
     uint8_t hash_size; // 16
     unsigned char hash[16]; // server hash
@@ -274,4 +274,4 @@ enum search_constraint {
     SC_MINLENGTH    = 0xd3000101,
 };
 
-#endif // PACKET_H
+#endif // ED2K_PROTO_H

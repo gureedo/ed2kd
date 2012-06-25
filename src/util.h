@@ -2,7 +2,7 @@
 #define UTIL_H
 
 /**
-  @file util.h Some utilities collection
+  @file util.h utilities collection
 */
 
 #ifndef INET_ADDRSTRLEN
@@ -16,7 +16,7 @@
 #endif
 
 /**
-  @brief convert "DEADBEEF" -> {0xDE,0xAD,0xBE,0xEF"}
+  @brief convert "DEADBEEF" -> {0xDE,0xAD,0xBE,0xEF}
   @param src       source string
   @param dst       destination buffer
   @param dst_len   dst buffer length

@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)..\junk\$(Platform)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\src\win32;$(SolutionDir)..\3rdparty\libevent\include;$(SolutionDir)..\3rdparty\libevent\WIN32-Code;$(SolutionDir)..\3rdparty\libconfig\lib;$(SolutionDir)..\3rdparty\sqlite;$(SolutionDir)..\3rdparty\zlib</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PreprocessorDefinitions>LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\$(Platform)_$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>zlib10.lib;libevent_core10.lib;libconfig10.lib;ws2_32.lib;advapi32.lib</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>
