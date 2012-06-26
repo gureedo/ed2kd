@@ -5,6 +5,7 @@
   <PropertyGroup>
     <OutDir>$(ProjectDir)..\bin\$(Platform)_$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)..\junk\$(Platform)_$(Configuration)\$(ProjectName)\</IntDir>
+    <_PropertySheetDisplayName>ed2kd10</_PropertySheetDisplayName>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>

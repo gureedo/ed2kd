@@ -71,7 +71,7 @@ int main( int argc, char *argv[] )
     }
 
     // load config
-    if ( !ed2kd_config_load(0) < 0 ) {
+    if ( ed2kd_config_load(0) < 0 ) {
         ED2KD_LOGWRN("failed to load configuration file");
         return EXIT_FAILURE;
     }

@@ -21,7 +21,7 @@ sdbm( const unsigned char *str, size_t length )
     return hash;
 }
 
-#define DB_NAME "ed2kd.db"
+#define DB_NAME ":memory:"
 #define MAX_SEARCH_QUERY_LEN  1024
 #define MAX_NAME_TERM_LEN     1024
 
@@ -50,7 +50,9 @@ int db_open()
         "   mcodec TEXT"
 		");"
 
-        "UPDATE files SET srcavail=0,srccomplete=0;"
+        "CREATE VIRTUAL TABLE IF NOT EXISTS fnames USING fts4 ("
+        "   content=\"files\",tokenize=unicode61, name"
+        ");"
 
         "CREATE TABLE IF NOT EXISTS sources ("
 		"	fid INTEGER NOT NULL,"
@@ -62,32 +64,38 @@ int db_open()
 		"	ON sources(fid);"
 		"CREATE INDEX IF NOT EXISTS sources_sid_i"
 		"	ON sources(sid);"
-        "CREATE TRIGGER IF NOT EXISTS sources_bi BEFORE INSERT ON sources BEGIN"
+
+        "CREATE TRIGGER IF NOT EXISTS sources_ai AFTER INSERT ON sources BEGIN"
         "   UPDATE files SET srcavail=srcavail+1,srccomplete=srccomplete+new.complete WHERE fid=new.fid;"
         "END;"
         "CREATE TRIGGER IF NOT EXISTS sources_bd BEFORE DELETE ON sources BEGIN"
         "   UPDATE files SET srcavail=srcavail-1,srccomplete=srccomplete-old.complete WHERE fid=old.fid;"
         "END;"
 
-		"DELETE FROM sources;"
+        // delete when no sources available
+        " CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files WHEN new.srcavail=0 BEGIN"
+        "   DELETE FROM files WHERE fid=new.fid;"
+        "END;"
 
-        "CREATE VIRTUAL TABLE IF NOT EXISTS fnames USING fts4 ("
-        "   content=\"files\", tokenize=unicode61, name"
-        ");"
-
-        "CREATE TRIGGER IF NOT EXISTS files_bu BEFORE UPDATE ON files BEGIN"
+        // update on file name change
+        "CREATE TRIGGER IF NOT EXISTS files_fts1 BEFORE UPDATE ON files WHEN new.name<>old.name BEGIN"
         "   DELETE FROM fnames WHERE docid=old.rowid;"
         "END;"
-        "CREATE TRIGGER IF NOT EXISTS files_bd BEFORE DELETE ON files BEGIN"
+        "CREATE TRIGGER IF NOT EXISTS files_fts2 AFTER UPDATE ON files WHEN new.name<>old.name BEGIN"
+        "   INSERT INTO fnames(docid, name) VALUES(new.rowid, new.name);"
+        "END;"
+        // delete
+        "CREATE TRIGGER IF NOT EXISTS files_fts3 BEFORE DELETE ON files BEGIN"
         "   DELETE FROM fnames WHERE docid=old.rowid;"
         "END;"
+        // insert
+        "CREATE TRIGGER IF NOT EXISTS files_fts4 AFTER INSERT ON files BEGIN"
+        "   INSERT INTO fnames(docid, name) VALUES(new.rowid, new.name);"
+        "END;"
 
-        "CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN"
-        "   INSERT INTO fnames(docid, name) VALUES(new.rowid, new.name);"
-        "END;"
-        "CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN"
-        "   INSERT INTO fnames(docid, name) VALUES(new.rowid, new.name);"
-        "END;"
+        "DELETE FROM files;"
+        "DELETE FROM fnames;"
+        "DELETE FROM sources;"
 	;
 
 	int err;
@@ -118,9 +126,11 @@ int db_close()
 int db_add_file( const struct pub_file *file, const struct e_client *owner )
 {
     static const char query1[] = 
+        "UPDATE files SET name=?,ext=?,size=?,type=?,mlength=?,mbitrate=?,mcodec=? WHERE fid=?";
+    static const char query2[] = 
         "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec) "
         "   VALUES(?,?,?,?,?,?,?,?,?)";
-    static const char query2[] = 
+    static const char query3[] = 
         "INSERT INTO sources(fid,sid,complete,rating) VALUES(?,?,?,?)";
 
     sqlite3_stmt *stmt;
@@ -145,20 +155,35 @@ int db_add_file( const struct pub_file *file, const struct e_client *owner )
 
     i=1;
     DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query1, sizeof query1, &stmt, &tail) );
-	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++,  fid) );
-    DB_CHECK( SQLITE_OK == sqlite3_bind_blob(stmt, i++, file->hash, sizeof file->hash, SQLITE_STATIC) );
-	DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, file->name, file->name_len, SQLITE_STATIC) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, file->name, file->name_len, SQLITE_STATIC) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, ext, ext_len, SQLITE_STATIC) );
-	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, file->size) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, file->size) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->type) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->media_length) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->media_bitrate) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, file->media_codec, file->media_codec_len, SQLITE_STATIC) );
-	DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
-	sqlite3_finalize(stmt);
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++,  fid) );
+    DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
+    sqlite3_finalize(stmt);
+
+    if ( !sqlite3_changes(g_db) ) {
+        i=1;
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query2, sizeof query2, &stmt, &tail) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++,  fid) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_blob(stmt, i++, file->hash, sizeof file->hash, SQLITE_STATIC) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, file->name, file->name_len, SQLITE_STATIC) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, ext, ext_len, SQLITE_STATIC) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, file->size) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->type) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->media_length) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->media_bitrate) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, file->media_codec, file->media_codec_len, SQLITE_STATIC) );
+        DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
+        sqlite3_finalize(stmt);
+    }
 
     i=1;
-    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query2, sizeof query2, &stmt, &tail) );
+    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query3, sizeof query3, &stmt, &tail) );
 	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, fid) );
 	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, MAKE_SID(owner)) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->complete) );
@@ -212,7 +237,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         " FROM fnames n"
         " JOIN files f ON f.fid = n.docid"
         " WHERE fnames MATCH ?"
-        "  AND f.srcavail>?"
+        
     ;
 
     while ( snode ) {
@@ -293,13 +318,16 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         strcat(query, " AND f.ext=?");
     }
     if ( codec_node ) {
-        //strcat(query, " AND f.codec=?");
+        strcat(query, " AND f.mcodec=?");
     }
     if ( minsize ) {
         strcat(query, " AND f.size>?");
     }
     if ( maxsize ) {
         strcat(query, " AND f.size<?");
+    }
+    if ( srcavail ) {
+        strcat(query, " AND f.srcavail>?");
     }
     if ( srccomplete ) {
         strcat(query, " AND f.srccomplete>?");
@@ -316,19 +344,21 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
 
     i=1;
     DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, name_term, strlen(name_term)+1, SQLITE_STATIC) );
-    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, srcavail) );
     
     if ( ext_node ) {
         DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, ext_node->str_val, ext_node->str_len, SQLITE_STATIC) );
     }
     if ( codec_node ) {
-        //DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, codec_node->str_val, codec_node->str_len, SQLITE_STATIC) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, codec_node->str_val, codec_node->str_len, SQLITE_STATIC) );
     }
     if ( minsize ) {
         DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, minsize) );
     }
     if ( maxsize ) {
         DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, maxsize) );
+    }
+    if ( srcavail ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, srcavail) );
     }
     if ( srccomplete ) {
         DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, srccomplete) );
