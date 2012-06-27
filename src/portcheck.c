@@ -23,8 +23,8 @@ send_hello( struct e_client *client )
     sa_len = sizeof sa;
     getsockname(fd, (struct sockaddr*)&sa, &sa_len);
 	
-    data.proto = PROTO_EDONKEY;
-    data.length = sizeof data - sizeof(struct packet_header);
+    data.hdr.proto = PROTO_EDONKEY;
+    data.hdr.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_HELLO;
     data.hash_size = 16;
     memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
@@ -65,7 +65,7 @@ process_packet( struct packet_buffer *pb, struct e_client *client )
     switch ( opcode ) {
     case OP_HELLOANSWER:
         PB_CHECK( process_hello_answer(pb, client) == 0 );
-		client_portcheck_finish(client);
+		client_portcheck_finish(client, 1);
         return 0;
 
     default:
@@ -94,10 +94,8 @@ read_cb( struct bufferevent *bev, void *ctx )
 
 		// check protocol header
 		if ( PROTO_EDONKEY != header->proto ) {
-#ifdef DEBUG
 			ED2KD_LOGDBG("unknown packet protocol %s:%u", client->dbg.ip_str, client->port);
-#endif
-			client_portcheck_failed(client);
+			client_portcheck_finish(client, 0);
 			return;
 		}
 
@@ -113,10 +111,8 @@ read_cb( struct bufferevent *bev, void *ctx )
 
 		PB_INIT(&pb, data, header->length);
 		if ( process_packet(&pb, client) < 0 ) {
-#ifdef DEBUG
 			ED2KD_LOGDBG("client packet parsing error %s:%u", client->dbg.ip_str, client->port);
-#endif
-			client_portcheck_failed(client);
+			client_portcheck_finish(client, 0);
 			return;
 		}
 
@@ -134,7 +130,7 @@ event_cb( struct bufferevent *bev, short events, void *ctx )
     struct e_client *client = (struct e_client *)ctx;
 
 	if ( !client->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
-		client_portcheck_failed(client);
+		client_portcheck_finish(client, 0);
 	} else if ( events & BEV_EVENT_CONNECTED ) {
         send_hello(client);
     }

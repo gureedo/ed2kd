@@ -43,17 +43,17 @@ enum packet_opcode {
                                         // //v2 <HASH 16><SIZE_4> (17.3) (mandatory on 17.8)
                                         // //v2large <HASH 16><FILESIZE 4(0)><FILESIZE 8> (17.9) (large files only)
     //OP_SEARCH_USER			= 0x1A,	// 
-    //OP_CALLBACKREQUEST		= 0x1C,	// 
+    OP_CALLBACKREQUEST          = 0x1C,	// 
     //OP_QUERY_CHATS			= 0x1D,	// 
     //OP_CHAT_MESSAGE			= 0x1E,	// 
     //OP_JOIN_ROOM				= 0x1F,	// 
     OP_QUERY_MORE_RESULT		= 0x21,	// empty
-    //OP_GETSOURCES_OBFU        = 0x23,
+    OP_GETSOURCES_OBFU          = 0x23, //
     //OP_SERVERLIST				= 0x32,	// 
     OP_SEARCHRESULT             = 0x33,	// <count4>[<hash16><id4><port2><tag_count4>[tags...]...]
     OP_SERVERSTATUS             = 0x34, // <users_count4><files_count4>
     //OP_CALLBACKREQUESTED		= 0x35,	// 
-    //OP_CALLBACK_FAIL			= 0x36,	// 
+    OP_CALLBACK_FAIL			= 0x36,	// 
     OP_SERVERMESSAGE            = 0x38, // <msg_len2><message>
     //OP_CHAT_ROOM_REQUEST		= 0x39,	// 
     //OP_CHAT_BROADCAST			= 0x3A,	// 
@@ -76,7 +76,7 @@ struct packet_header {
 
 PACKED_STRUCT(
 struct packet_server_message {
-    struct packet_header;
+    struct packet_header hdr;
     uint8_t opcode;
     uint16_t msg_len;
 };
@@ -84,7 +84,7 @@ struct packet_server_message {
 
 PACKED_STRUCT(
 struct packet_id_change {
-    struct packet_header;
+    struct packet_header hdr;
     uint8_t opcode;
     uint32_t user_id;
     uint32_t tcp_flags;
@@ -93,7 +93,7 @@ struct packet_id_change {
 
 PACKED_STRUCT(
 struct packet_server_status {
-    struct packet_header;
+    struct packet_header hdr;
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
@@ -102,7 +102,7 @@ struct packet_server_status {
 
 PACKED_STRUCT(
 struct packet_server_ident {
-    struct packet_header;
+    struct packet_header hdr;
 	uint8_t opcode;
 	unsigned char hash[HASH_SIZE];
 	uint32_t ip;
@@ -113,7 +113,7 @@ struct packet_server_ident {
 
 PACKED_STRUCT(
 struct packet_search_result {
-    struct packet_header;
+    struct packet_header hdr;
     uint8_t opcode;
     uint32_t files_count;
 };
@@ -130,7 +130,7 @@ struct search_file_entry {
 
 PACKED_STRUCT(
 struct packet_found_sources {
-    struct packet_header;
+    struct packet_header hdr;
 	uint8_t opcode;
 	unsigned char hash[HASH_SIZE];
 	uint8_t count;
@@ -139,13 +139,13 @@ struct packet_found_sources {
 
 PACKED_STRUCT(
 struct packet_hello {
-    struct packet_header;
+    struct packet_header hdr;
     uint8_t opcode;
-    uint8_t hash_size; // 16
-    unsigned char hash[16]; // server hash
-    uint32_t client_id; // get local sock ip
-    uint16_t client_port; // 4662
-    uint32_t tag_count; // 2
+    uint8_t hash_size;
+    unsigned char hash[16];
+    uint32_t client_id;
+    uint16_t client_port;
+    uint32_t tag_count;
     struct {
         uint8_t type;  // TT_STR5
         uint8_t name;  // TN_NAME
@@ -167,6 +167,14 @@ struct tag_header
     uint8_t type;
     uint16_t name_len;
     unsigned char name[1];
+};
+)
+
+PACKED_STRUCT(
+struct short_tag {
+    uint8_t type;
+    uint8_t name;
+    unsigned char data[1];
 };
 )
 

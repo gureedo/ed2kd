@@ -110,7 +110,7 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
     }
 
     if ( client_portcheck_start(client) < 0 ) {
-		client_portcheck_failed(client);
+		client_portcheck_finish(client, 0);
 		return -1;
 	}
 
@@ -342,7 +342,6 @@ process_search_request( struct packet_buffer *pb, struct e_client *client )
     }
 
     send_search_result(client, &root);
-
     return 0;
 
 malformed:
@@ -352,7 +351,7 @@ malformed:
 static int
 process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *client )
 {
-	// todo: verify portcheck state
+	PB_CHECK( client->portcheck_finished || (OP_LOGINREQUEST==opcode));
 
     switch ( opcode ) {
     case OP_LOGINREQUEST:
@@ -369,7 +368,7 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *clien
 		return 0;
 
 	case OP_QUERY_MORE_RESULT:
-		// may be send op_reject?
+		// todo: may be send op_reject?
 		return 0;
 
 	case OP_DISCONNECT:
@@ -384,6 +383,12 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *clien
 		PB_CHECK( process_offer_files(pb, client) >= 0 );
 		return 0;
 
+    case OP_CALLBACKREQUEST:
+        // todo: send OP_CALLBACK_FAIL
+        return 0;
+
+    case OP_GETSOURCES_OBFU:
+    case OP_REJECT:
     default:
         PB_CHECK(0);
     }
@@ -407,11 +412,8 @@ read_cb( struct bufferevent *bev, void *ctx )
 		const struct packet_header *header =
 			(struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
-		// check header protocol
 		if  ( PROTO_PACKED != header->proto && PROTO_EDONKEY != header->proto ) {
-#ifdef DEBUG
 			ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
-#endif
 			client_delete(client);
 			return;
 		}
@@ -437,9 +439,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 				PB_INIT(&pb, unpacked, unpacked_len);
 				ret = process_packet(&pb, *data, client);
 			} else {
-#ifdef DEBUG
 				ED2KD_LOGDBG("failed to unpack packet from %s:%u", client->dbg.ip_str, client->port);
-#endif
 				ret = -1;
 			}
 			free(unpacked);
@@ -450,9 +450,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 
 		
 		if (  ret < 0 ) {
-#ifdef DEBUG
 			ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
-#endif
 			client_delete(client);
 			return;
 		}
@@ -467,9 +465,7 @@ event_cb( struct bufferevent *bev, short events, void *ctx )
 {
 	if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
 		struct e_client *client = (struct e_client*)ctx;
-#ifdef DEBUG
         ED2KD_LOGDBG("got EOF or error from %s:%u", client->dbg.ip_str, client->port);
-#endif
         client_delete(client);
     }
 }
@@ -561,7 +557,6 @@ int ed2kd_run()
 
     base = event_base_new();
     if ( NULL == base ) {
-        // todo: get last error
         ED2KD_LOGERR("failed to create main event loop");
         return EXIT_FAILURE;
     }
@@ -580,8 +575,8 @@ int ed2kd_run()
         accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
         ed2kd_cfg()->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
     if ( NULL == listener ) {
-        // todo: get last error
-        ED2KD_LOGERR("failed to start listen on %s:%u", ed2kd_cfg()->listen_addr, ed2kd_cfg()->listen_port);
+        int err = EVUTIL_SOCKET_ERROR();
+        ED2KD_LOGERR("failed to start listen on %s:%u, last error: %s", ed2kd_cfg()->listen_addr, ed2kd_cfg()->listen_port, evutil_socket_error_to_string(err));
         return EXIT_FAILURE;
     }
 
@@ -596,8 +591,7 @@ int ed2kd_run()
 	
 	ret = event_base_dispatch(base);
     if ( ret < 0 ) {
-        // todo: get last error
-        ED2KD_LOGERR("failed to start main event loop");
+        ED2KD_LOGERR("main dispatch loop finished with error");
         return EXIT_FAILURE;
     }
     else if ( 0 == ret ) {
@@ -605,7 +599,7 @@ int ed2kd_run()
     }
 
 	if ( db_close() < 0 ) {
-		// todo: log error
+        ED2KD_LOGERR("failed to close database");
 	}
 	
 	evconnlistener_free(listener);

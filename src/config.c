@@ -18,6 +18,7 @@
 #define CFG_SERVER_HASH             "server_hash"
 #define CFG_SERVER_NAME             "server_name"
 #define CFG_SERVER_DESCR            "server_descr"
+#define CFG_ALLOW_LOWID             "allow_lowid"
 
 extern struct ed2kd_cfg g_ed2kd_cfg;
 
@@ -91,12 +92,20 @@ int ed2kd_config_load( const char * path )
 			strncpy(g_ed2kd_cfg.server_name, str_val, g_ed2kd_cfg.server_name_len+1);
 		}
 
-		// server name (optional)
+		// server description (optional)
 		if ( config_setting_lookup_string(root, CFG_SERVER_DESCR, &str_val) ) {
 			size_t len = strlen(str_val)-1;
 			g_ed2kd_cfg.server_descr_len = MAX_SERVER_DESCR_LEN > len ? len: MAX_SERVER_DESCR_LEN;
 			strncpy(g_ed2kd_cfg.server_descr, str_val, g_ed2kd_cfg.server_descr_len+1);
 		}
+
+        // allow lowid
+        if ( config_setting_lookup_int(root, CFG_ALLOW_LOWID, &int_val) ) {
+            g_ed2kd_cfg.allow_lowid = (int_val != 0);
+        } else {
+            ED2KD_LOGERR("config: " CFG_ALLOW_LOWID " missing");
+            ret = -1;
+        }
 
     } else {
         ED2KD_LOGWRN("config: failed to parse %s(error:%s at %d line)", config_error_file(&config),

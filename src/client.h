@@ -14,9 +14,9 @@ struct e_client {
     uint32_t server_flags;
     uint32_t emule_ver;
 
-
 	// flags
-	unsigned portcheck_finished : 1;
+	unsigned portcheck_finished:1;
+    unsigned lowid:1;
 
 	struct bufferevent *bev_srv;
 	struct bufferevent *bev_cli;
@@ -32,8 +32,7 @@ struct e_client *client_new();
 
 void client_delete( struct e_client *client );
 
-void client_portcheck_finish( struct e_client *client );
-void client_portcheck_failed( struct e_client *client );
+void client_portcheck_finish( struct e_client *client, unsigned success );
 
 void send_id_change( struct e_client *client );
 
@@ -48,6 +47,8 @@ void send_search_result( struct e_client *client, struct search_node *search_tre
 void send_found_sources( struct e_client *client, const unsigned char *hash );
 
 void send_reject( struct e_client *client );
+
+void send_callback_fail( struct e_client *client );
 
 void write_search_file( struct evbuffer *buf, const struct search_file *file );
 

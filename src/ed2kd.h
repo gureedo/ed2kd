@@ -29,9 +29,8 @@ struct ed2kd_cfg
     uint16_t listen_port;
     int listen_backlog;
 	unsigned char hash[16];
-    // 
     uint32_t srv_tcp_flags;
-	
+
 	size_t welcome_msg_len;
     char welcome_msg[MAX_WELCOMEMSG_LEN+1];
 
@@ -40,6 +39,9 @@ struct ed2kd_cfg
 
 	size_t server_descr_len;
 	char server_descr[MAX_SERVER_DESCR_LEN+1];
+
+    //flags
+    unsigned allow_lowid:1;
 };
 
 /**
