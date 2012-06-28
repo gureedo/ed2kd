@@ -108,7 +108,7 @@ int ed2kd_config_load( const char * path )
         }
 
     } else {
-        ED2KD_LOGWRN("config: failed to parse %s(error:%s at %d line)", config_error_file(&config),
+        ED2KD_LOGWRN("config: failed to parse %s(error:%s at %d line)", path,
             config_error_text(&config), config_error_line(&config));
         ret = -1;
     }

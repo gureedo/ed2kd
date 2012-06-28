@@ -9,6 +9,7 @@ struct e_client {
     unsigned char hash[16];
     uint32_t ip;
     uint16_t port;
+    uint32_t id;
     char nick[MAX_NICK_LEN+1];
     uint16_t nick_len;
     uint32_t server_flags;

@@ -109,6 +109,8 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
         }
     }
 
+    // todo: search already connected with same ip:port
+
     if ( client_portcheck_start(client) < 0 ) {
 		client_portcheck_finish(client, 0);
 		return -1;
@@ -225,9 +227,8 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 			}
 		}
 
-#ifdef DEBUG
         ED2KD_LOGDBG("file name:%s,size:%u published", file.name, file.size);
-#endif
+
         // todo: check return
 		db_add_file( &file, client );
 	}
@@ -495,6 +496,13 @@ accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr 
 
     bufferevent_setcb(bev, read_cb, NULL, event_cb, client);
     bufferevent_enable(bev, EV_READ|EV_WRITE);
+
+    send_server_message(client, ed2kd_cfg()->welcome_msg, ed2kd_cfg()->welcome_msg_len);
+    
+    if ( !ed2kd_cfg()->allow_lowid ) {
+        static const char msg_highid[] = "WARNING: Only HighID clients!";
+        send_server_message(client, msg_highid, sizeof msg_highid - 1);
+    }
 
     // todo: set timeout for op_login
 }

@@ -30,7 +30,7 @@ struct pub_file {
 
 struct search_file {
     const unsigned char *hash;
-    uint32_t client_ip;
+    uint32_t client_id;
     uint16_t client_port;
     uint16_t name_len;
     const char *name;

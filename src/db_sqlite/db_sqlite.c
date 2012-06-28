@@ -27,8 +27,8 @@ sdbm( const unsigned char *str, size_t length )
 
 #define DB_CHECK(x)         if (!(x)) goto failed;
 #define MAKE_FID(x)         sdbm((x), 16)
-#define MAKE_SID(x)         ( ((uint64_t)(x)->ip<<32) | (uint64_t)(x)->port )
-#define GET_SID_IP(sid)     (uint32_t)((sid)>>32)
+#define MAKE_SID(x)         ( ((uint64_t)(x)->id<<32) | (uint64_t)(x)->port )
+#define GET_SID_ID(sid)     (uint32_t)((sid)>>32)
 #define GET_SID_PORT(sid)   (uint16_t)(sid)
 
 static sqlite3 *g_db;
@@ -395,7 +395,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         sfile.rating = sqlite3_column_int(stmt, col++);
         
         sid = sqlite3_column_int64(stmt, col++);
-        sfile.client_ip = GET_SID_IP(sid);
+        sfile.client_id = GET_SID_ID(sid);
         sfile.client_port = GET_SID_PORT(sid);
         
         sfile.media_length = sqlite3_column_int(stmt, col++);
@@ -438,7 +438,7 @@ int db_get_sources( const unsigned char *hash, struct e_source *sources, uint8_t
     i=0;
     while ( ((err = sqlite3_step(stmt)) == SQLITE_ROW) && (i < *count) ) {
         uint64_t sid = sqlite3_column_int64(stmt, 0);
-        sources[i].ip = GET_SID_IP(sid);
+        sources[i].ip = GET_SID_ID(sid);
         sources[i].port = GET_SID_PORT(sid);
         ++i;
     }

@@ -10,6 +10,20 @@
 #include "log.h"
 #include "db.h"
 
+static uint32_t
+get_next_lowid()
+{
+    static uint32_t id;
+
+    if ( id > 0x1000000u ) {
+        id = 1;
+    } else {
+        id++;
+    }
+
+    return id;
+}
+
 struct e_client *client_new()
 {
     struct e_client *client = (struct e_client*)malloc(sizeof(struct e_client));
@@ -21,10 +35,9 @@ struct e_client *client_new()
 
 void client_delete( struct e_client *client )
 {
-#ifdef DEBUG
 	ED2KD_LOGDBG("client removed (%s:%d)", client->dbg.ip_str, client->port);
-#endif
-	if( client->bev_cli ) bufferevent_free(client->bev_cli);
+
+    if( client->bev_cli ) bufferevent_free(client->bev_cli);
 	if( client->bev_srv ) bufferevent_free(client->bev_srv);
 
 	db_remove_source(client);
@@ -41,7 +54,7 @@ void send_id_change( struct e_client *client )
 	data.hdr.proto = PROTO_EDONKEY;
 	data.hdr.length = sizeof data - sizeof(struct packet_header);
 	data.opcode = OP_IDCHANGE;
-	data.user_id = client->ip;
+   	data.user_id = client->id;
 	data.tcp_flags = ed2kd_cfg()->srv_tcp_flags;
 
 	bufferevent_write(client->bev_srv, &data, sizeof data);
@@ -163,7 +176,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     struct search_file_entry sfe;
             
     memcpy(sfe.hash, file->hash, sizeof sfe.hash);
-    sfe.id = file->client_ip;
+    sfe.id = file->client_id;
     sfe.port = file->client_port;
     sfe.tag_count = 1+ 1+ /*(0!=file->type)+*/ (file->ext_len>0)+ 1+ 1+ (file->media_length>0)+ (file->media_length>0)+ (file->media_codec_len>0);
     evbuffer_add(buf, &sfe, sizeof sfe);
@@ -320,15 +333,23 @@ void client_portcheck_finish( struct e_client *client, unsigned success )
     client->lowid = success;
 
     if ( !success ) {
+        static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
         ED2KD_LOGDBG("port check failed (%s:%d)", client->dbg.ip_str, client->port);
+        send_server_message(client, msg_lowid, sizeof msg_lowid - 1);
+        // todo: 
+    } 
+    
+    if ( !success ) {
         if ( ed2kd_cfg()->allow_lowid ) {
-            // todo: msg "you have lowId"
+            client->id = get_next_lowid();
+            client->port = 0;
         } else {
-            // todo: msg "only highId"
             client_delete(client);
+            return;
         }
     } else {
-        send_server_message(client, ed2kd_cfg()->welcome_msg, ed2kd_cfg()->welcome_msg_len);
-        send_id_change(client);
+        client->id = ntohs(client->ip);
     }
+
+    send_id_change(client);
 }
