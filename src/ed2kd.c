@@ -96,7 +96,7 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
 
         case TN_SERVER_FLAGS:
             PB_CHECK(TT_UINT32 == tag_hdr->type);
-            PB_READ_UINT32(pb, client->server_flags);
+            PB_READ_UINT32(pb, client->tcp_flags);
             break;
 
         case TN_EMULE_VERSION:
@@ -161,7 +161,7 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					if ( TT_UINT32 == tag_hdr->type ) {
 						PB_READ_UINT32(pb, file.media_length);
 					} else if ( TT_STRING == tag_hdr->type ) {
-						// todo: support string values
+						// todo: support string values ( hh:mm:ss)
 						uint16_t len;
 						PB_READ_UINT16(pb, len);
 						PB_SEEK(pb, len);
@@ -205,7 +205,10 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 
 				case TN_FILERATING:
 					PB_CHECK(TT_UINT32 == tag_hdr->type);
-					PB_READ_UINT8(pb, file.rating);
+					PB_READ_UINT32(pb, file.rating);
+                    if ( file.rating > 5 ) {
+                        file.rating = 5;
+                    }
 					break;
 
 				case TN_FILETYPE:
@@ -227,10 +230,12 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 			}
 		}
 
-        ED2KD_LOGDBG("file name:%s,size:%u published", file.name, file.size);
-
-        // todo: check return
-		db_add_file( &file, client );
+        if ( db_add_file( &file, client ) < 0 ) {
+            // todo: something gone wrong
+        } else {
+            ED2KD_LOGDBG("published file(name:'%s',size:%u published", file.name, file.size);
+            client->pub_file_count++;
+        }
 	}
 
 	return 0;
@@ -479,6 +484,7 @@ accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr 
 	struct event_base *base;
 	struct bufferevent *bev;
 
+    // todo: limit total client count
     // todo: limit connections from same ip
     // todo: block banned ips
 

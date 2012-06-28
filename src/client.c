@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <math.h>
 #include <malloc.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
@@ -178,7 +179,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     memcpy(sfe.hash, file->hash, sizeof sfe.hash);
     sfe.id = file->client_id;
     sfe.port = file->client_port;
-    sfe.tag_count = 1+ 1+ /*(0!=file->type)+*/ (file->ext_len>0)+ 1+ 1+ (file->media_length>0)+ (file->media_length>0)+ (file->media_codec_len>0);
+    sfe.tag_count = 1+ 1+ /*(0!=file->type)+*/ (file->ext_len>0)+ 1+ 1+ (file->rated_count>0)+ (file->media_length>0)+ (file->media_length>0)+ (file->media_codec_len>0);
     evbuffer_add(buf, &sfe, sizeof sfe);
 
     {
@@ -248,6 +249,22 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
 
         evbuffer_add(buf, &th, sizeof th);
         evbuffer_add(buf, &file->srccomplete, sizeof file->srccomplete);
+    }
+
+    if ( file->rated_count > 0 ) {
+        uint16_t data;
+        struct tag_header th;
+        th.type = TT_UINT16;
+        th.name_len = 1;
+        *th.name = TN_FILERATING;
+
+        // lo-byte: percentage rated this file
+        data = (100 * (uint8_t)((float)file->srcavail/(float)file->rated_count)) << 8;
+        // hi-byte: average rating
+        data += ((uint16_t)floor((double)file->rating/(double)file->rated_count + 0.6f) * 51) & 0xFF;
+
+        evbuffer_add(buf, &th, sizeof th);
+        evbuffer_add(buf, &data, sizeof data);
     }
 
     if ( file->media_length ) {
@@ -348,7 +365,7 @@ void client_portcheck_finish( struct e_client *client, unsigned success )
             return;
         }
     } else {
-        client->id = ntohs(client->ip);
+        client->id = client->ip;
     }
 
     send_id_change(client);

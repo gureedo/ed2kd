@@ -12,8 +12,10 @@ struct e_client {
     uint32_t id;
     char nick[MAX_NICK_LEN+1];
     uint16_t nick_len;
-    uint32_t server_flags;
+    uint32_t tcp_flags;
     uint32_t emule_ver;
+    uint32_t pub_file_count;
+
 
 	// flags
 	unsigned portcheck_finished:1;

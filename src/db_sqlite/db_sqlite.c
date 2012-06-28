@@ -45,6 +45,8 @@ int db_open()
         "   type INTEGER NOT NULL,"
         "   srcavail INTEGER DEFAULT 0,"
         "   srccomplete INTEGER DEFAULT 0,"
+        "   rating INTEGER DEFAULT 0,"
+        "   rated_count INTEGER DEFAULT 0,"
         "   mlength INTEGER,"
         "   mbitrate INTEGER,"
         "   mcodec TEXT"
@@ -66,10 +68,14 @@ int db_open()
 		"	ON sources(sid);"
 
         "CREATE TRIGGER IF NOT EXISTS sources_ai AFTER INSERT ON sources BEGIN"
-        "   UPDATE files SET srcavail=srcavail+1,srccomplete=srccomplete+new.complete WHERE fid=new.fid;"
+        "   UPDATE files SET srcavail=srcavail+1,srccomplete=srccomplete+new.complete,"
+        "       rating=rating+new.rating, rated_count = CASE WHEN new.rating<>0 THEN rated_count+1 ELSE 0 END"
+        "   WHERE fid=new.fid;"
         "END;"
         "CREATE TRIGGER IF NOT EXISTS sources_bd BEFORE DELETE ON sources BEGIN"
-        "   UPDATE files SET srcavail=srcavail-1,srccomplete=srccomplete-old.complete WHERE fid=old.fid;"
+        "   UPDATE files SET srcavail=srcavail-1,srccomplete=srccomplete-old.complete,"
+        "       rating=rating-old.rating, rated_count = CASE WHEN old.rating<>0 THEN rated_count-1 ELSE rated_count END"
+        "   WHERE fid=old.fid;"
         "END;"
 
         // delete when no sources available
@@ -230,8 +236,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
     struct search_node *ext_node=0, *codec_node=0;
     struct search_file sfile = {0};
     char query[MAX_SEARCH_QUERY_LEN] = 
-        " SELECT f.hash,f.name,f.size,f.type,f.ext,f.srcavail,f.srccomplete,"
-        "  (SELECT SUM(rating)/COUNT(*) FROM sources WHERE fid=f.fid AND rating>0) AS rating,"
+        " SELECT f.hash,f.name,f.size,f.type,f.ext,f.srcavail,f.srccomplete,f.rating,f.rated_count,"
         "  (SELECT sid FROM sources WHERE fid=f.fid LIMIT 1) AS sid,"
         "  f.mlength,f.mbitrate,f.mcodec "
         " FROM fnames n"
@@ -393,6 +398,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         sfile.srcavail = sqlite3_column_int(stmt, col++);
         sfile.srccomplete = sqlite3_column_int(stmt, col++);
         sfile.rating = sqlite3_column_int(stmt, col++);
+        sfile.rated_count = sqlite3_column_int(stmt, col++);
         
         sid = sqlite3_column_int64(stmt, col++);
         sfile.client_id = GET_SID_ID(sid);

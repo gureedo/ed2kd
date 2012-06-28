@@ -19,7 +19,7 @@ struct pub_file {
 	uint16_t name_len;
 	char name[MAX_FILENAME_LEN+1];
 	uint64_t size;
-	uint8_t rating;
+	uint32_t rating;
 	uint32_t type;
 	uint32_t media_length;
 	uint32_t media_bitrate;
@@ -36,7 +36,8 @@ struct search_file {
     const char *name;
     uint64_t size;
     uint32_t type;
-    uint8_t rating;
+    uint32_t rating;
+    uint32_t rated_count;
     uint16_t ext_len;
     const char *ext;
     uint32_t media_length;
