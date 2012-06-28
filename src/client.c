@@ -261,7 +261,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
         // lo-byte: percentage rated this file
         data = (100 * (uint8_t)((float)file->srcavail/(float)file->rated_count)) << 8;
         // hi-byte: average rating
-        data += ((uint16_t)floor((double)file->rating/(double)file->rated_count + 0.6f) * 51) & 0xFF;
+        data += ((uint16_t)floor((double)file->rating/(double)file->rated_count + 0.5f) * 51) & 0xFF;
 
         evbuffer_add(buf, &th, sizeof th);
         evbuffer_add(buf, &data, sizeof data);
@@ -340,23 +340,23 @@ void send_callback_fail( struct e_client *client )
     bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
-void client_portcheck_finish( struct e_client *client, unsigned success )
+void client_portcheck_finish( struct e_client *client, enum portcheck_result result )
 {
 	if ( client->bev_cli ) {
         bufferevent_free(client->bev_cli);
 	    client->bev_cli = NULL;
     }
 	client->portcheck_finished = 1;
-    client->lowid = success;
+    client->lowid = (PORTCHECK_SUCCESS == result);
 
-    if ( !success ) {
+    if ( client->lowid ) {
         static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
         ED2KD_LOGDBG("port check failed (%s:%d)", client->dbg.ip_str, client->port);
         send_server_message(client, msg_lowid, sizeof msg_lowid - 1);
         // todo: 
     } 
     
-    if ( !success ) {
+    if ( client->lowid ) {
         if ( ed2kd_cfg()->allow_lowid ) {
             client->id = get_next_lowid();
             client->port = 0;

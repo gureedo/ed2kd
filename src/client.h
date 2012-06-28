@@ -5,6 +5,11 @@
 #define	MAX_FOUND_SOURCES	200
 #define	MAX_FOUND_FILES 	200
 
+enum portcheck_result {
+    PORTCHECK_FAILED,
+    PORTCHECK_SUCCESS
+};
+
 struct e_client {
     unsigned char hash[16];
     uint32_t ip;
@@ -35,7 +40,7 @@ struct e_client *client_new();
 
 void client_delete( struct e_client *client );
 
-void client_portcheck_finish( struct e_client *client, unsigned success );
+void client_portcheck_finish( struct e_client *client, enum portcheck_result result );
 
 void send_id_change( struct e_client *client );
 

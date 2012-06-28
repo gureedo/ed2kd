@@ -112,7 +112,7 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
     // todo: search already connected with same ip:port
 
     if ( client_portcheck_start(client) < 0 ) {
-		client_portcheck_finish(client, 0);
+		client_portcheck_finish(client, PORTCHECK_FAILED);
 		return -1;
 	}
 
@@ -131,7 +131,9 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 	PB_READ_UINT32(pb, count);
 	PB_CHECK(count <= 200 );
 	
-	for( i=0; i<count; ++i ) {
+	// todo: limit total files count on server
+    
+    for( i=0; i<count; ++i ) {
 		uint32_t tag_count, id;
 		uint16_t port;
 		struct pub_file file = {0};
@@ -150,14 +152,14 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 		for ( ; tag_count>0; --tag_count ) {
 			struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
 
-			// new tags currently unsupported
+			// todo: new tags support
 			PB_CHECK( (tag_hdr->type & 0x80) == 0 );
 
 			PB_SKIP_TAGHDR(pb, tag_hdr);
 
 			// string-named tags
 			if (tag_hdr->name_len > 1 ) {
-				if( memcmp(TNS_MEDIA_LENGTH, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
+				if( strncmp(TNS_MEDIA_LENGTH, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
 					if ( TT_UINT32 == tag_hdr->type ) {
 						PB_READ_UINT32(pb, file.media_length);
 					} else if ( TT_STRING == tag_hdr->type ) {
@@ -168,10 +170,10 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					} else {
 						PB_CHECK(0);
 					}
-				} else if( memcmp(TNS_MEDIA_BITRATE, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
+				} else if( strncmp(TNS_MEDIA_BITRATE, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
 					PB_CHECK( TT_UINT32 == tag_hdr->type );
 					PB_READ_UINT32(pb, file.media_bitrate);
-				} else if( memcmp(TNS_MEDIA_CODEC, &tag_hdr->name, tag_hdr->name_len) == 0 ) {
+				} else if( strncmp(TNS_MEDIA_CODEC, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
 					uint16_t len = MAX_MCODEC_LEN;
 					PB_CHECK(TT_STRING == tag_hdr->type);
 					PB_READ_STRING(pb, file.media_codec, len);
@@ -217,7 +219,7 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
 					} else if ( TT_STRING == tag_hdr->type ) {
                         uint16_t len;
                         PB_READ_UINT16(pb, len);
-                        // todo: read string file type and find its integer representation
+                        file.type = get_ed2k_file_type((const char*)pb->ptr, len);
                         PB_SEEK(pb, len);
 					} else {
 						PB_CHECK(0);
@@ -307,7 +309,7 @@ process_search_request( struct packet_buffer *pb, struct e_client *client )
                     n->type = ST_EXTENSION;
                 } else if ( (0x0001 == tail1) && (0xd5 == tail2) ) {
                     n->type = ST_CODEC;
-                } else if ( (0x0001 == tail1) && (0xd5 == tail2) ) {
+                } else if ( (0x0001 == tail1) && (0x03 == tail2) ) {
                     n->type = ST_TYPE;
                 } else {
                     PB_CHECK(0);
@@ -400,6 +402,7 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *clien
     }
 
 malformed:
+    ED2KD_LOGDBG("malformed packet (opcode:%u)", opcode);
     return -1;
 }
 
@@ -418,7 +421,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 		const struct packet_header *header =
 			(struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
-		if  ( PROTO_PACKED != header->proto && PROTO_EDONKEY != header->proto ) {
+		if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
 			ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
 			client_delete(client);
 			return;
@@ -430,7 +433,9 @@ read_cb( struct bufferevent *bev, void *ctx )
 		if ( packet_len > src_len )
 			return;
 
-		data = evbuffer_pullup(input, packet_len) + sizeof(struct packet_header);
+        data = evbuffer_pullup(input, packet_len);
+        header = (struct packet_header*)data;
+		data += sizeof(struct packet_header);
 
 		if ( PROTO_PACKED == header->proto ) {
 			unsigned char *unpacked;

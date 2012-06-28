@@ -65,7 +65,7 @@ process_packet( struct packet_buffer *pb, struct e_client *client )
     switch ( opcode ) {
     case OP_HELLOANSWER:
         PB_CHECK( process_hello_answer(pb, client) == 0 );
-		client_portcheck_finish(client, 1);
+		client_portcheck_finish(client, PORTCHECK_SUCCESS);
         return 0;
 
     default:
@@ -112,7 +112,7 @@ read_cb( struct bufferevent *bev, void *ctx )
 		PB_INIT(&pb, data, header->length);
 		if ( process_packet(&pb, client) < 0 ) {
 			ED2KD_LOGDBG("client packet parsing error %s:%u", client->dbg.ip_str, client->port);
-			client_portcheck_finish(client, 0);
+			client_portcheck_finish(client, PORTCHECK_FAILED);
 			return;
 		}
 
@@ -130,7 +130,7 @@ event_cb( struct bufferevent *bev, short events, void *ctx )
     struct e_client *client = (struct e_client *)ctx;
 
 	if ( !client->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
-		client_portcheck_finish(client, 0);
+		client_portcheck_finish(client, PORTCHECK_FAILED);
 	} else if ( events & BEV_EVENT_CONNECTED ) {
         send_hello(client);
     }

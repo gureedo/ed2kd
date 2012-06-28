@@ -4,7 +4,6 @@
 #include "util.h"
 #include "ed2k_proto.h"
 
-
 int hex2bin( const char *src, unsigned char *dst, size_t dst_len )
 {
 	size_t i;
@@ -32,7 +31,6 @@ int hex2bin( const char *src, unsigned char *dst, size_t dst_len )
     return 0;
 }
 
-
 int bin2hex( const unsigned char *src, char *dst, size_t dst_len )
 {
 	size_t i,j;
@@ -50,10 +48,32 @@ int bin2hex( const unsigned char *src, char *dst, size_t dst_len )
     return 0;
 }
 
-
-void rnd_user_hash( unsigned char *hash )
+void get_random_user_hash( unsigned char *hash )
 {
     evutil_secure_rng_get_bytes((char*)hash, HASH_SIZE);
     hash[6] = 14;
     hash[15] = 111;
+}
+
+uint8_t get_ed2k_file_type( const char *type, size_t len )
+{
+    if ( strncmp(FTS_AUDIO, type, len) == 0 ) {
+        return FT_AUDIO;
+    } else if ( strncmp(FTS_VIDEO, type, len) == 0 ) {
+        return FT_VIDEO;
+    } else if ( strncmp(FTS_IMAGE, type, len) == 0 ) {
+        return FT_IMAGE;
+    } else if ( strncmp(FTS_DOCUMENT, type, len) == 0 ) {
+        return FT_DOCUMENT;
+    } else if ( strncmp(FTS_PROGRAM, type, len) == 0 ) {
+        return FT_PROGRAM;
+    } else if ( strncmp(FTS_ARCHIVE, type, len) == 0 ) {
+        return FT_ARCHIVE;
+    } else if ( strncmp(FTS_CDIMAGE, type, len) == 0 ) {
+        return FT_CDIMAGE;
+    } else if ( strncmp(FTS_EMULECOLLECTION, type, len) == 0 ) {
+        return FT_EMULECOLLECTION;
+    } else {
+        return FT_ANY;
+    }
 }

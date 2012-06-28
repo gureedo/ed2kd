@@ -6,6 +6,7 @@
 #include "../log.h"
 #include "../db.h"
 #include "../client.h"
+#include "../util.h"
 
 #pragma comment(lib, "sqlite10.lib")
 
@@ -227,14 +228,22 @@ failed:
 // todo: buffer overflow protection for name_term
 int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *count )
 {
-    sqlite3_stmt *stmt = 0;
-    char *tail;
-    char name_term[MAX_NAME_TERM_LEN] = {0};
-    size_t i;
     int err;
-    uint64_t minsize=0, maxsize=0, srcavail=0, srccomplete=0, minbitrate=0, minlength=0;
-    struct search_node *ext_node=0, *codec_node=0;
-    struct search_file sfile = {0};
+    char *tail;
+    sqlite3_stmt *stmt = 0;
+    size_t i;
+    struct {
+        char name_term[MAX_NAME_TERM_LEN];
+        uint64_t minsize;
+        uint64_t maxsize;
+        uint64_t srcavail;
+        uint64_t srccomplete;
+        uint64_t minbitrate;
+        uint64_t minlength;
+        struct search_node *ext_node;
+        struct search_node *codec_node;
+        struct search_node *type_node;
+    } params = {0};
     char query[MAX_SEARCH_QUERY_LEN] = 
         " SELECT f.hash,f.name,f.size,f.type,f.ext,f.srcavail,f.srccomplete,f.rating,f.rated_count,"
         "  (SELECT sid FROM sources WHERE fid=f.fid LIMIT 1) AS sid,"
@@ -242,14 +251,13 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         " FROM fnames n"
         " JOIN files f ON f.fid = n.docid"
         " WHERE fnames MATCH ?"
-        
     ;
 
     while ( snode ) {
         if ( (ST_AND <= snode->type) && (ST_NOT >= snode->type) ) {
             if ( !snode->left_visited ) {
                 if ( snode->string_term ) {
-                    strcat(name_term, "(");
+                    strcat(params.name_term, "(");
                 }
                 snode->left_visited = 1;
                 snode = snode->left;
@@ -271,45 +279,47 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
                     default:
                         DB_CHECK(0);
                     }
-                    strcat(name_term, oper);
+                    strcat(params.name_term, oper);
                 }
                 snode->right_visited = 1;
                 snode = snode->right;
                 continue;
             } else {
                 if ( snode->string_term ) {
-                    strcat(name_term, ")");
+                    strcat(params.name_term, ")");
                 }
             }
         } else {
             switch ( snode->type ) {
             case ST_STRING:
-                //DB_CHECK(!snode->parent || snode->parent->string_term);
-                strncat(name_term, snode->str_val, snode->str_len);
+                strncat(params.name_term, snode->str_val, snode->str_len);
                 break;
             case ST_EXTENSION:
-                ext_node = snode;
+                params.ext_node = snode;
                 break;
             case ST_CODEC:
-                codec_node = snode;
+                params.codec_node = snode;
                 break;
             case ST_MINSIZE:
-                minsize = snode->int_val;
+                params.minsize = snode->int_val;
                 break;
             case ST_MAXSIZE:
-                maxsize = snode->int_val;
+                params.maxsize = snode->int_val;
                 break;
             case ST_SRCAVAIL:
-                srcavail = snode->int_val;
+                params.srcavail = snode->int_val;
                 break;
             case ST_SRCCOMLETE:
-                srccomplete = snode->int_val;
+                params.srccomplete = snode->int_val;
                 break;
             case ST_MINBITRATE:
-                minbitrate = snode->int_val;
+                params.minbitrate = snode->int_val;
                 break;
             case ST_MINLENGTH:
-                minlength = snode->int_val;
+                params.minlength = snode->int_val;
+                break;
+            case ST_TYPE:
+                params.type_node = snode;
                 break;
             default:
                 DB_CHECK(0);
@@ -319,66 +329,74 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         snode = snode->parent;
     }
 
-    if ( ext_node ) {
+    if ( params.ext_node ) {
         strcat(query, " AND f.ext=?");
     }
-    if ( codec_node ) {
+    if ( params.codec_node ) {
         strcat(query, " AND f.mcodec=?");
     }
-    if ( minsize ) {
+    if ( params.minsize ) {
         strcat(query, " AND f.size>?");
     }
-    if ( maxsize ) {
+    if ( params.maxsize ) {
         strcat(query, " AND f.size<?");
     }
-    if ( srcavail ) {
+    if ( params.srcavail ) {
         strcat(query, " AND f.srcavail>?");
     }
-    if ( srccomplete ) {
+    if ( params.srccomplete ) {
         strcat(query, " AND f.srccomplete>?");
     }
-    if ( minbitrate ) {
+    if ( params.minbitrate ) {
         strcat(query, " AND f.mbitrate>?");
     }
-    if ( minlength ) {
+    if ( params.minlength ) {
         strcat(query, " AND f.mlength>?");
+    }
+    if ( params.type_node ) {
+        strcat(query, " AND f.type=?");
     }
     strcat(query, " LIMIT ?");
 
     DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, strlen(query)+1, &stmt, &tail) );
 
     i=1;
-    DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, name_term, strlen(name_term)+1, SQLITE_STATIC) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.name_term, strlen(params.name_term)+1, SQLITE_STATIC) );
     
-    if ( ext_node ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, ext_node->str_val, ext_node->str_len, SQLITE_STATIC) );
+    if ( params.ext_node ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.ext_node->str_val, params.ext_node->str_len, SQLITE_STATIC) );
     }
-    if ( codec_node ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, codec_node->str_val, codec_node->str_len, SQLITE_STATIC) );
+    if ( params.codec_node ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.codec_node->str_val, params.codec_node->str_len, SQLITE_STATIC) );
     }
-    if ( minsize ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, minsize) );
+    if ( params.minsize ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, params.minsize) );
     }
-    if ( maxsize ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, maxsize) );
+    if ( params.maxsize ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, params.maxsize) );
     }
-    if ( srcavail ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, srcavail) );
+    if ( params.srcavail ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, params.srcavail) );
     }
-    if ( srccomplete ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, srccomplete) );
+    if ( params.srccomplete ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, params.srccomplete) );
     }
-    if ( minbitrate ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, minbitrate) );
+    if ( params.minbitrate ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, params.minbitrate) );
     }
-    if ( minlength ) {
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, minlength) );
+    if ( params.minlength ) {
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, params.minlength) );
+    }
+    if ( params.type_node ) {
+        uint8_t type = get_ed2k_file_type(params.type_node->str_val, params.type_node->str_len);
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, type) );
     }
 
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, *count) );
 
     i = 0;
     while ( ((err = sqlite3_step(stmt)) == SQLITE_ROW) && (i < *count) ) {
+        struct search_file sfile = {0};
         uint64_t sid;
         int col = 0;
         

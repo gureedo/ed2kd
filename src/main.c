@@ -54,7 +54,7 @@ int main( int argc, char *argv[] )
             case 'g': {
                 unsigned char hash[HASH_SIZE];
                 char hex_hash[sizeof(hash)*2+1];
-                rnd_user_hash(hash);
+                get_random_user_hash(hash);
                 bin2hex(hash, hex_hash, sizeof(hex_hash));
                 puts(hex_hash);
                 return EXIT_SUCCESS;

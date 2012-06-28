@@ -239,19 +239,9 @@ enum tag_name
 #define	TNS_MEDIA_BITRATE	"bitrate"
 #define	TNS_MEDIA_CODEC		"codec"
 
-// file types
-#define	FTS_AUDIO	        "Audio"
-#define	FTS_VIDEO           "Video"
-#define	FTS_IMAGE           "Image"
-#define	FTS_DOCUMENT		"Doc"
-#define	FTS_PROGRAM		    "Pro"
-#define	FTS_ARCHIVE		    "Arc"
-#define	FTS_CDIMAGE		    "Iso"
-#define FTS_EMULECOLLECTION	"EmuleCollection"
-
 enum file_type
 {
-	FT_ANY				= 0,
+    FT_ANY              = 0,
 	FT_AUDIO			= 1,
 	FT_VIDEO			= 2,
 	FT_IMAGE			= 3,
@@ -261,6 +251,16 @@ enum file_type
 	FT_CDIMAGE			= 7,
 	FT_EMULECOLLECTION	= 8
 };
+
+// string file types
+#define	FTS_AUDIO	        "Audio"
+#define	FTS_VIDEO           "Video"
+#define	FTS_IMAGE           "Image"
+#define	FTS_DOCUMENT		"Doc"
+#define	FTS_PROGRAM		    "Pro"
+#define	FTS_ARCHIVE		    "Arc"
+#define	FTS_CDIMAGE		    "Iso"
+#define FTS_EMULECOLLECTION	"EmuleCollection"
 
 enum search_operator 
 {

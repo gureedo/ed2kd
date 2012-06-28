@@ -37,6 +37,13 @@ int bin2hex( const unsigned char *src, char *dst, size_t dst_len );
   @brief generate random ed2k user hash
   @param hash  destination buffer
 */
-void rnd_user_hash( unsigned char *hash );
+void get_random_user_hash( unsigned char *hash );
+
+/**
+  @brief 
+  @param type   string type
+  @param len    length of type without null byte
+*/
+uint8_t get_ed2k_file_type( const char *type, size_t len );
 
 #endif // UTIL_H
