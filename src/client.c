@@ -351,7 +351,7 @@ void client_portcheck_finish( struct e_client *client, enum portcheck_result res
         client->bev_cli = NULL;
     }
     client->portcheck_finished = 1;
-    client->lowid = (PORTCHECK_SUCCESS == result);
+    client->lowid = (PORTCHECK_SUCCESS != result);
 
     if ( client->lowid ) {
         static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
