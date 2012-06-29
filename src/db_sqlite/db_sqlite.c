@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <malloc.h>
@@ -8,7 +7,9 @@
 #include "../client.h"
 #include "../util.h"
 
+#ifdef _MSC_VER
 #pragma comment(lib, "sqlite10.lib")
+#endif
 
 static uint64_t
 sdbm( const unsigned char *str, size_t length )
@@ -36,13 +37,13 @@ static sqlite3 *g_db;
 
 int db_open()
 {
-	static const char query[] = 
-		"CREATE TABLE IF NOT EXISTS files ("
+    static const char query[] =
+        "CREATE TABLE IF NOT EXISTS files ("
         "   fid INTEGER PRIMARY KEY,"
-		"	hash BLOB NOT NULL,"
-		"	name TEXT NOT NULL,"
+        "	hash BLOB NOT NULL,"
+        "	name TEXT NOT NULL,"
         "   ext TEXT,"
-		"	size INTEGER NOT NULL,"
+        "   size INTEGER NOT NULL,"
         "   type INTEGER NOT NULL,"
         "   srcavail INTEGER DEFAULT 0,"
         "   srccomplete INTEGER DEFAULT 0,"
@@ -51,22 +52,22 @@ int db_open()
         "   mlength INTEGER,"
         "   mbitrate INTEGER,"
         "   mcodec TEXT"
-		");"
+        ");"
 
         "CREATE VIRTUAL TABLE IF NOT EXISTS fnames USING fts4 ("
-        "   content=\"files\",tokenize=unicode61, name"
+        "   content=\"files\", tokenize=unicode61, name"
         ");"
 
         "CREATE TABLE IF NOT EXISTS sources ("
-		"	fid INTEGER NOT NULL,"
-		"	sid INTEGER NOT NULL,"
+        "   fid INTEGER NOT NULL,"
+        "   sid INTEGER NOT NULL,"
         "   complete INTEGER,"
         "   rating INTEGER"
-		");"
-		"CREATE INDEX IF NOT EXISTS sources_fid_i"
-		"	ON sources(fid);"
-		"CREATE INDEX IF NOT EXISTS sources_sid_i"
-		"	ON sources(sid);"
+        ");"
+        "CREATE INDEX IF NOT EXISTS sources_fid_i"
+        "   ON sources(fid);"
+        "CREATE INDEX IF NOT EXISTS sources_sid_i"
+        "   ON sources(sid);"
 
         "CREATE TRIGGER IF NOT EXISTS sources_ai AFTER INSERT ON sources BEGIN"
         "   UPDATE files SET srcavail=srcavail+1,srccomplete=srccomplete+new.complete,"
@@ -103,45 +104,46 @@ int db_open()
         "DELETE FROM files;"
         "DELETE FROM fnames;"
         "DELETE FROM sources;"
-	;
+    ;
 
-	int err;
-	int flags = SQLITE_OPEN_CREATE|SQLITE_OPEN_READWRITE|SQLITE_OPEN_FULLMUTEX|SQLITE_OPEN_SHAREDCACHE;
-	err = sqlite3_open_v2(DB_NAME, &g_db, flags, NULL);
-	if ( SQLITE_OK == err ) {
-		char *errmsg;
-		
-		err = sqlite3_exec(g_db, query, NULL, NULL, &errmsg);
-		if ( SQLITE_OK != err ) {
-			ED2KD_LOGERR("failed to execute database init script (%s)", errmsg);
-			sqlite3_free(errmsg);
-			return -1;
-		}
-	} else {
-		ED2KD_LOGERR("failed to open/create DB (%s)", sqlite3_errmsg(g_db));
-		return -1;
-	}
+    int err;
+    int flags = SQLITE_OPEN_CREATE|SQLITE_OPEN_READWRITE|SQLITE_OPEN_FULLMUTEX|SQLITE_OPEN_SHAREDCACHE;
+    err = sqlite3_open_v2(DB_NAME, &g_db, flags, NULL);
 
-	return 0;
+    if ( SQLITE_OK == err ) {
+        char *errmsg;
+
+        err = sqlite3_exec(g_db, query, NULL, NULL, &errmsg);
+        if ( SQLITE_OK != err ) {
+            ED2KD_LOGERR("failed to execute database init script (%s)", errmsg);
+            sqlite3_free(errmsg);
+            return -1;
+        }
+    } else {
+        ED2KD_LOGERR("failed to open/create DB (%s)", sqlite3_errmsg(g_db));
+        return -1;
+    }
+
+    return 0;
 }
 
 int db_close()
 {
-	return (SQLITE_OK == sqlite3_close(g_db)) ? 0 : -1;
+    return (SQLITE_OK == sqlite3_close(g_db)) ? 0 : -1;
 }
 
 int db_add_file( const struct pub_file *file, const struct e_client *owner )
 {
-    static const char query1[] = 
+    static const char query1[] =
         "UPDATE files SET name=?,ext=?,size=?,type=?,mlength=?,mbitrate=?,mcodec=? WHERE fid=?";
-    static const char query2[] = 
+    static const char query2[] =
         "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec) "
         "   VALUES(?,?,?,?,?,?,?,?,?)";
-    static const char query3[] = 
+    static const char query3[] =
         "INSERT INTO sources(fid,sid,complete,rating) VALUES(?,?,?,?)";
 
     sqlite3_stmt *stmt;
-	char *tail;
+    const char *tail;
     const char *ext;
     int ext_len;
     int i;
@@ -191,45 +193,45 @@ int db_add_file( const struct pub_file *file, const struct e_client *owner )
 
     i=1;
     DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query3, sizeof query3, &stmt, &tail) );
-	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, fid) );
-	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, MAKE_SID(owner)) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, fid) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, i++, MAKE_SID(owner)) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->complete) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, i++, file->rating) );
-	DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
-	sqlite3_finalize(stmt);
+    DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
+    sqlite3_finalize(stmt);
 
-	return 0;
+    return 0;
 
 failed:
-	if ( stmt ) sqlite3_finalize(stmt);
-	ED2KD_LOGERR("failed to add file to db (%s)", sqlite3_errmsg(g_db));
-	return -1;
+    if ( stmt ) sqlite3_finalize(stmt);
+    ED2KD_LOGERR("failed to add file to db (%s)", sqlite3_errmsg(g_db));
+    return -1;
 }
 
 int db_remove_source( const struct e_client *client )
 {
-	sqlite3_stmt *stmt;
-	char *tail;
-	static const char query[] = 
-		"DELETE FROM sources WHERE sid=?";
+    sqlite3_stmt *stmt;
+    const char *tail;
+    static const char query[] =
+        "DELETE FROM sources WHERE sid=?";
 
-	DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
-	DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, MAKE_SID(client)) );
-	DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
-	sqlite3_finalize(stmt);
-	return 0;
+    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, MAKE_SID(client)) );
+    DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
+    sqlite3_finalize(stmt);
+    return 0;
 
 failed:
-	if ( stmt ) sqlite3_finalize(stmt);
-	ED2KD_LOGERR("failed to remove sources from db (%s)", sqlite3_errmsg(g_db));
-	return -1;
+    if ( stmt ) sqlite3_finalize(stmt);
+    ED2KD_LOGERR("failed to remove sources from db (%s)", sqlite3_errmsg(g_db));
+    return -1;
 }
 
 // todo: buffer overflow protection for name_term
 int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *count )
 {
     int err;
-    char *tail;
+    const char *tail;
     sqlite3_stmt *stmt = 0;
     size_t i;
     struct {
@@ -243,8 +245,8 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         struct search_node *ext_node;
         struct search_node *codec_node;
         struct search_node *type_node;
-    } params = {0};
-    char query[MAX_SEARCH_QUERY_LEN] = 
+    } params;
+    char query[MAX_SEARCH_QUERY_LEN] =
         " SELECT f.hash,f.name,f.size,f.type,f.ext,f.srcavail,f.srccomplete,f.rating,f.rated_count,"
         "  (SELECT sid FROM sources WHERE fid=f.fid LIMIT 1) AS sid,"
         "  f.mlength,f.mbitrate,f.mcodec "
@@ -252,6 +254,8 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         " JOIN files f ON f.fid = n.docid"
         " WHERE fnames MATCH ?"
     ;
+
+    memset(&params, 0, sizeof params);
 
     while ( snode ) {
         if ( (ST_AND <= snode->type) && (ST_NOT >= snode->type) ) {
@@ -362,7 +366,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
 
     i=1;
     DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.name_term, strlen(params.name_term)+1, SQLITE_STATIC) );
-    
+
     if ( params.ext_node ) {
         DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.ext_node->str_val, params.ext_node->str_len, SQLITE_STATIC) );
     }
@@ -396,35 +400,37 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
 
     i = 0;
     while ( ((err = sqlite3_step(stmt)) == SQLITE_ROW) && (i < *count) ) {
-        struct search_file sfile = {0};
+        struct search_file sfile;
         uint64_t sid;
         int col = 0;
-        
+
+        memset(&sfile, 0, sizeof sfile);
+
         sfile.hash = (const unsigned char*)sqlite3_column_blob(stmt, col++);
-        
+
         sfile.name_len = sqlite3_column_bytes(stmt, col);
         sfile.name_len = sfile.name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : sfile.name_len;
         sfile.name = (const char*)sqlite3_column_text(stmt, col++);
-        
+
         sfile.size = sqlite3_column_int64(stmt, col++);
         sfile.type = sqlite3_column_int(stmt, col++);
-        
+
         sfile.ext_len = sqlite3_column_bytes(stmt, col);
         sfile.ext_len = sfile.ext_len > MAX_FILEEXT_LEN ? MAX_FILEEXT_LEN : sfile.ext_len;
         sfile.ext = (const char*)sqlite3_column_text(stmt, col++);
-        
+
         sfile.srcavail = sqlite3_column_int(stmt, col++);
         sfile.srccomplete = sqlite3_column_int(stmt, col++);
         sfile.rating = sqlite3_column_int(stmt, col++);
         sfile.rated_count = sqlite3_column_int(stmt, col++);
-        
+
         sid = sqlite3_column_int64(stmt, col++);
         sfile.client_id = GET_SID_ID(sid);
         sfile.client_port = GET_SID_PORT(sid);
-        
+
         sfile.media_length = sqlite3_column_int(stmt, col++);
         sfile.media_bitrate = sqlite3_column_int(stmt, col++);
-        
+
         sfile.media_codec_len = sqlite3_column_bytes(stmt, col);
         sfile.media_codec_len = sfile.media_codec_len > MAX_FILEEXT_LEN ? MAX_FILEEXT_LEN : sfile.media_codec_len;
         sfile.media_codec = (const char*)sqlite3_column_text(stmt, col++);
@@ -440,22 +446,22 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
     return 0;
 
 failed:
-	if ( stmt ) sqlite3_finalize(stmt);
-	ED2KD_LOGERR("failed perform search query (%s)", sqlite3_errmsg(g_db));
+    if ( stmt ) sqlite3_finalize(stmt);
+    ED2KD_LOGERR("failed perform search query (%s)", sqlite3_errmsg(g_db));
 
     return -1;
 }
 
 int db_get_sources( const unsigned char *hash, struct e_source *sources, uint8_t *count )
 {
-	sqlite3_stmt *stmt;
-	char *tail;
+    sqlite3_stmt *stmt;
+    const char *tail;
     uint8_t i;
     int err;
-	static const char query[] = 
-		"SELECT sid FROM sources WHERE fid=? LIMIT ?";
+    static const char query[] =
+        "SELECT sid FROM sources WHERE fid=? LIMIT ?";
 
-	DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
+    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, MAKE_FID(hash)) );
     DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, 2, *count) );
 
@@ -470,10 +476,10 @@ int db_get_sources( const unsigned char *hash, struct e_source *sources, uint8_t
     DB_CHECK( (i==*count) || (SQLITE_DONE == err) );
 
     *count = i;
-	return 0;
+    return 0;
 
 failed:
-	if ( stmt ) sqlite3_finalize(stmt);
-	ED2KD_LOGERR("failed to remove souves from db (%s)", sqlite3_errmsg(g_db));
-	return -1;
+    if ( stmt ) sqlite3_finalize(stmt);
+    ED2KD_LOGERR("failed to remove souves from db (%s)", sqlite3_errmsg(g_db));
+    return -1;
 }

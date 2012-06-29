@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
 #ifdef WIN32
@@ -36,9 +37,9 @@ void display_usage( void )
 
 int main( int argc, char *argv[] )
 {
-	int ret, opt, longIndex = 0;
+    int ret, opt, longIndex = 0;
 #ifdef WIN32
-	WSADATA WSAData;
+    WSADATA WSAData;
 #endif
 
     ed2kd_init();

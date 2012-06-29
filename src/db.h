@@ -1,6 +1,9 @@
 #ifndef DB_H
 #define DB_H
 
+struct e_client;
+struct evbuffer;
+
 #include "packed_struct.h"
 
 #define MAX_FILENAME_LEN    255
@@ -9,22 +12,22 @@
 
 PACKED_STRUCT(
 struct e_source {
-	uint32_t ip;
-	uint16_t port;
+    uint32_t ip;
+    uint16_t port;
 };
 )
 
 struct pub_file {
-	unsigned char hash[16];
-	uint16_t name_len;
-	char name[MAX_FILENAME_LEN+1];
-	uint64_t size;
-	uint32_t rating;
-	uint32_t type;
-	uint32_t media_length;
-	uint32_t media_bitrate;
+    unsigned char hash[16];
+    uint16_t name_len;
+    char name[MAX_FILENAME_LEN+1];
+    uint64_t size;
+    uint32_t rating;
+    uint32_t type;
+    uint32_t media_length;
+    uint32_t media_bitrate;
     uint16_t media_codec_len;
-	char media_codec[MAX_MCODEC_LEN+1];
+    char media_codec[MAX_MCODEC_LEN+1];
     unsigned complete:1;
 };
 
@@ -65,7 +68,7 @@ enum search_node_type {
     ST_SRCAVAIL,
     ST_SRCCOMLETE,
     ST_MINBITRATE,
-    ST_MINLENGTH,
+    ST_MINLENGTH
 };
 
 struct search_node {
@@ -96,4 +99,4 @@ int db_search_file(struct search_node *tree, struct evbuffer *buf, size_t *count
 int db_get_sources( const unsigned char *hash, struct e_source *buf, uint8_t *size );
 
 
-#endif // DB_H 
+#endif // DB_H

@@ -4,9 +4,9 @@
 #include "packed_struct.h"
 
 // potocol version
-enum  
+enum
 {
-	EDONKEYVERSION = 0x3c
+    EDONKEYVERSION = 0x3c
 };
 
 #define HASH_SIZE 16
@@ -42,45 +42,45 @@ enum packet_opcode {
     OP_GETSOURCES				= 0x19,	// <hash16>
                                         // //v2 <HASH 16><SIZE_4> (17.3) (mandatory on 17.8)
                                         // //v2large <HASH 16><FILESIZE 4(0)><FILESIZE 8> (17.9) (large files only)
-    //OP_SEARCH_USER			= 0x1A,	// 
-    OP_CALLBACKREQUEST          = 0x1C,	// 
-    //OP_QUERY_CHATS			= 0x1D,	// 
-    //OP_CHAT_MESSAGE			= 0x1E,	// 
-    //OP_JOIN_ROOM				= 0x1F,	// 
+    //OP_SEARCH_USER			= 0x1A,	//
+    OP_CALLBACKREQUEST          = 0x1C,	//
+    //OP_QUERY_CHATS			= 0x1D,	//
+    //OP_CHAT_MESSAGE			= 0x1E,	//
+    //OP_JOIN_ROOM				= 0x1F,	//
     OP_QUERY_MORE_RESULT		= 0x21,	// empty
     OP_GETSOURCES_OBFU          = 0x23, //
-    //OP_SERVERLIST				= 0x32,	// 
+    //OP_SERVERLIST				= 0x32,	//
     OP_SEARCHRESULT             = 0x33,	// <count4>[<hash16><id4><port2><tag_count4>[tags...]...]
     OP_SERVERSTATUS             = 0x34, // <users_count4><files_count4>
-    //OP_CALLBACKREQUESTED		= 0x35,	// 
-    OP_CALLBACK_FAIL			= 0x36,	// 
+    //OP_CALLBACKREQUESTED		= 0x35,	//
+    OP_CALLBACK_FAIL			= 0x36,	//
     OP_SERVERMESSAGE            = 0x38, // <msg_len2><message>
-    //OP_CHAT_ROOM_REQUEST		= 0x39,	// 
-    //OP_CHAT_BROADCAST			= 0x3A,	// 
-    //OP_CHAT_USER_JOIN			= 0x3B,	// 
-    //OP_CHAT_USER_LEAVE		= 0x3C,	// 
-    //OP_CHAT_USER				= 0x3D,	// 
+    //OP_CHAT_ROOM_REQUEST		= 0x39,	//
+    //OP_CHAT_BROADCAST			= 0x3A,	//
+    //OP_CHAT_USER_JOIN			= 0x3B,	//
+    //OP_CHAT_USER_LEAVE		= 0x3C,	//
+    //OP_CHAT_USER				= 0x3D,	//
     OP_IDCHANGE                 = 0x40, // <id4>
     OP_SERVERIDENT              = 0x41, // <hash16><ip4><port2><tag_count4>[tags...]
     OP_FOUNDSOURCES             = 0x42  // <HASH 16><count 1>(<ID 4><PORT 2>)[count]
-    //OP_USERS_LIST				= 0x43, 
-    //OP_FOUNDSOURCES_OBFU      = 0x44  
+    //OP_USERS_LIST				= 0x43,
+    //OP_FOUNDSOURCES_OBFU      = 0x44
 };
 
 PACKED_STRUCT(
 struct packet_header {
     uint8_t proto;
     uint32_t length;
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct packet_server_message {
     struct packet_header hdr;
     uint8_t opcode;
     uint16_t msg_len;
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct packet_id_change {
@@ -88,8 +88,8 @@ struct packet_id_change {
     uint8_t opcode;
     uint32_t user_id;
     uint32_t tcp_flags;
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct packet_server_status {
@@ -97,27 +97,27 @@ struct packet_server_status {
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct packet_server_ident {
     struct packet_header hdr;
-	uint8_t opcode;
-	unsigned char hash[HASH_SIZE];
-	uint32_t ip;
-	uint16_t port;
-	uint32_t tag_count;
-};
-)
+    uint8_t opcode;
+    unsigned char hash[HASH_SIZE];
+    uint32_t ip;
+    uint16_t port;
+    uint32_t tag_count;
+}
+);
 
 PACKED_STRUCT(
 struct packet_search_result {
     struct packet_header hdr;
     uint8_t opcode;
     uint32_t files_count;
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct search_file_entry {
@@ -125,17 +125,17 @@ struct search_file_entry {
     uint32_t id;
     uint16_t port;
     uint32_t tag_count;
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct packet_found_sources {
     struct packet_header hdr;
-	uint8_t opcode;
-	unsigned char hash[HASH_SIZE];
-	uint8_t count;
-};
-)
+    uint8_t opcode;
+    unsigned char hash[HASH_SIZE];
+    uint8_t count;
+}
+);
 
 PACKED_STRUCT(
 struct packet_hello {
@@ -158,8 +158,8 @@ struct packet_hello {
     } tag_version;
     uint32_t ip; // 0
     uint16_t port; //0
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct tag_header
@@ -167,16 +167,16 @@ struct tag_header
     uint8_t type;
     uint16_t name_len;
     unsigned char name[1];
-};
-)
+}
+);
 
 PACKED_STRUCT(
 struct short_tag {
     uint8_t type;
     uint8_t name;
     unsigned char data[1];
-};
-)
+}
+);
 
 enum tag_type {
     TT_HASH16       = 0x01,
@@ -212,26 +212,26 @@ enum tag_type {
 
 enum tag_name
 {
-	// OP_LOGINREQUEST
-	TN_NAME                     = 0x01,
+    // OP_LOGINREQUEST
+    TN_NAME                     = 0x01,
     TN_PORT                     = 0x0F,
     TN_VERSION                  = 0x11,
     TN_SERVER_FLAGS             = 0x20,
     TN_EMULE_VERSION            = 0xFB,
 
-	// OP_OFFERFILES, OP_SEARCHRESULT
-	TN_FILENAME					= 0x01,
-	TN_FILESIZE					= 0x02,
-	TN_FILETYPE					= 0x03,
+    // OP_OFFERFILES, OP_SEARCHRESULT
+    TN_FILENAME					= 0x01,
+    TN_FILESIZE					= 0x02,
+    TN_FILETYPE					= 0x03,
     TN_FILEFORMAT               = 0x04,
     TN_SOURCES                  = 0x15,
     TN_COMPLETE_SOURCES         = 0x30,
-	TN_FILESIZE_HI				= 0x3A,
-	TN_FILERATING				= 0xF7,
+    TN_FILESIZE_HI				= 0x3A,
+    TN_FILERATING				= 0xF7,
 
-	// OP_SERVERIDENT
-	TN_SERVERNAME				= 0x01,
-	TN_DESCRIPTION				= 0x0B
+    // OP_SERVERIDENT
+    TN_SERVERNAME				= 0x01,
+    TN_DESCRIPTION				= 0x0B
 };
 
 // string tag names
@@ -242,14 +242,14 @@ enum tag_name
 enum file_type
 {
     FT_ANY              = 0,
-	FT_AUDIO			= 1,
-	FT_VIDEO			= 2,
-	FT_IMAGE			= 3,
-	FT_PROGRAM			= 4,
-	FT_DOCUMENT			= 5,
-	FT_ARCHIVE			= 6,
-	FT_CDIMAGE			= 7,
-	FT_EMULECOLLECTION	= 8
+    FT_AUDIO			= 1,
+    FT_VIDEO			= 2,
+    FT_IMAGE			= 3,
+    FT_PROGRAM			= 4,
+    FT_DOCUMENT			= 5,
+    FT_ARCHIVE			= 6,
+    FT_CDIMAGE			= 7,
+    FT_EMULECOLLECTION	= 8
 };
 
 // string file types
@@ -262,7 +262,7 @@ enum file_type
 #define	FTS_CDIMAGE		    "Iso"
 #define FTS_EMULECOLLECTION	"EmuleCollection"
 
-enum search_operator 
+enum search_operator
 {
     SO_AND            = 0x0000, // uint16
     SO_OR             = 0x0100, // uint16
@@ -279,7 +279,7 @@ enum search_constraint {
     SC_SRCAVAIL     = 0x15000101,
     SC_SRCCMPLETE   = 0x30000101,
     SC_MINBITRATE   = 0xd4000101,
-    SC_MINLENGTH    = 0xd3000101,
+    SC_MINLENGTH    = 0xd3000101
 };
 
 #endif // ED2K_PROTO_H

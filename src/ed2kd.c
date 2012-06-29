@@ -1,6 +1,12 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <signal.h>
+#include <string.h>
+#include <errno.h>
 #include <malloc.h>
+#ifdef __GNUC__
+#include <alloca.h>
+#endif
 #include <event2/event.h>
 #include <event2/thread.h>
 #include <event2/buffer.h>
@@ -27,7 +33,7 @@ const struct ed2kd_cfg *ed2kd_cfg()
 
 struct ed2kd_rt *ed2kd_rt()
 {
-	return &g_ed2kd_rt;
+    return &g_ed2kd_rt;
 }
 
 int ed2kd_init()
@@ -37,7 +43,7 @@ int ed2kd_init()
         return -1;
     }
     memset(&g_ed2kd_cfg, 0, sizeof(g_ed2kd_cfg));
-	memset(&g_ed2kd_rt, 0, sizeof(g_ed2kd_rt));
+    memset(&g_ed2kd_rt, 0, sizeof(g_ed2kd_rt));
 
     g_ed2kd_cfg.srv_tcp_flags = SRV_TCPFLG_COMPRESSION | SRV_TCPFLG_TYPETAGINTEGER | SRV_TCPFLG_LARGEFILES;
 
@@ -47,9 +53,9 @@ int ed2kd_init()
 static int
 process_login_request( struct packet_buffer *pb, struct e_client *client )
 {
-	uint32_t tag_count;
-	
-	// user hash 16b
+    uint32_t tag_count;
+
+    // user hash 16b
     PB_MEMCPY(pb, client->hash, sizeof client->hash);
 
     // user id 4b
@@ -63,23 +69,23 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
 
     for ( ; tag_count>0; --tag_count ) {
         const struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
-        
-		// no new tags allowed here
-		PB_CHECK( (tag_hdr->type & 0x80) == 0 );
-		
-		// only int-based tag names
-		PB_CHECK( 1 == tag_hdr->name_len );
+
+        // no new tags allowed here
+        PB_CHECK( (tag_hdr->type & 0x80) == 0 );
+
+        // only int-based tag names
+        PB_CHECK( 1 == tag_hdr->name_len );
 
         PB_SKIP_TAGHDR(pb, tag_hdr);
-        
-		switch ( *tag_hdr->name ) {
+
+        switch ( *tag_hdr->name ) {
         case TN_NAME: {
             PB_CHECK(TT_STRING == tag_hdr->type);
-			client->nick_len = MAX_NICK_LEN;
-			PB_READ_STRING(pb, client->nick, client->nick_len);
+            client->nick_len = MAX_NICK_LEN;
+            PB_READ_STRING(pb, client->nick, client->nick_len);
             client->nick[client->nick_len] = 0;
             break;
-		}
+        }
 
         case TN_PORT:
             PB_CHECK(TT_UINT16 == tag_hdr->type);
@@ -112,9 +118,9 @@ process_login_request( struct packet_buffer *pb, struct e_client *client )
     // todo: search already connected with same ip:port
 
     if ( client_portcheck_start(client) < 0 ) {
-		client_portcheck_finish(client, PORTCHECK_FAILED);
-		return -1;
-	}
+        client_portcheck_finish(client, PORTCHECK_FAILED);
+        return -1;
+    }
 
     return 0;
 
@@ -125,112 +131,114 @@ malformed:
 static int
 process_offer_files( struct packet_buffer *pb, struct e_client *client )
 {
-	size_t i;
-	uint32_t count;
+    size_t i;
+    uint32_t count;
 
-	PB_READ_UINT32(pb, count);
-	PB_CHECK(count <= 200 );
-	
-	// todo: limit total files count on server
-    
+    PB_READ_UINT32(pb, count);
+    PB_CHECK(count <= 200 );
+
+    // todo: limit total files count on server
+
     for( i=0; i<count; ++i ) {
-		uint32_t tag_count, id;
-		uint16_t port;
-		struct pub_file file = {0};
+        uint32_t tag_count, id;
+        uint16_t port;
+        struct pub_file file;
 
-		PB_MEMCPY(pb, file.hash, sizeof file.hash);
+        memset(&file, 0, sizeof file);
 
-		PB_READ_UINT32(pb, id);
-		PB_READ_UINT16(pb, port);
+        PB_MEMCPY(pb, file.hash, sizeof file.hash);
 
-		if ( (0xfbfbfbfb == id) && (0xfbfb == port) ) {
+        PB_READ_UINT32(pb, id);
+        PB_READ_UINT16(pb, port);
+
+        if ( (0xfbfbfbfb == id) && (0xfbfb == port) ) {
             file.complete = 1;
-		}
+        }
 
-		PB_READ_UINT32(pb, tag_count);
+        PB_READ_UINT32(pb, tag_count);
 
-		for ( ; tag_count>0; --tag_count ) {
-			struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
+        for ( ; tag_count>0; --tag_count ) {
+            struct tag_header *tag_hdr = (struct tag_header*)pb->ptr;
 
-			// todo: new tags support
-			PB_CHECK( (tag_hdr->type & 0x80) == 0 );
+            // todo: new tags support
+            PB_CHECK( (tag_hdr->type & 0x80) == 0 );
 
-			PB_SKIP_TAGHDR(pb, tag_hdr);
+            PB_SKIP_TAGHDR(pb, tag_hdr);
 
-			// string-named tags
-			if (tag_hdr->name_len > 1 ) {
-				if( strncmp(TNS_MEDIA_LENGTH, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
-					if ( TT_UINT32 == tag_hdr->type ) {
-						PB_READ_UINT32(pb, file.media_length);
-					} else if ( TT_STRING == tag_hdr->type ) {
-						// todo: support string values ( hh:mm:ss)
-						uint16_t len;
-						PB_READ_UINT16(pb, len);
-						PB_SEEK(pb, len);
-					} else {
-						PB_CHECK(0);
-					}
-				} else if( strncmp(TNS_MEDIA_BITRATE, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
-					PB_CHECK( TT_UINT32 == tag_hdr->type );
-					PB_READ_UINT32(pb, file.media_bitrate);
-				} else if( strncmp(TNS_MEDIA_CODEC, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
-					uint16_t len = MAX_MCODEC_LEN;
-					PB_CHECK(TT_STRING == tag_hdr->type);
-					PB_READ_STRING(pb, file.media_codec, len);
-					file.media_codec[len] = 0;
-				} else {
-					PB_CHECK(0);
-				}
-			} else {
-				switch ( *tag_hdr->name ) {
+            // string-named tags
+            if (tag_hdr->name_len > 1 ) {
+                if( strncmp(TNS_MEDIA_LENGTH, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
+                    if ( TT_UINT32 == tag_hdr->type ) {
+                        PB_READ_UINT32(pb, file.media_length);
+                    } else if ( TT_STRING == tag_hdr->type ) {
+                        // todo: support string values ( hh:mm:ss)
+                        uint16_t len;
+                        PB_READ_UINT16(pb, len);
+                        PB_SEEK(pb, len);
+                    } else {
+                        PB_CHECK(0);
+                    }
+                } else if( strncmp(TNS_MEDIA_BITRATE, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
+                    PB_CHECK( TT_UINT32 == tag_hdr->type );
+                    PB_READ_UINT32(pb, file.media_bitrate);
+                } else if( strncmp(TNS_MEDIA_CODEC, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
+                    uint16_t len = MAX_MCODEC_LEN;
+                    PB_CHECK(TT_STRING == tag_hdr->type);
+                    PB_READ_STRING(pb, file.media_codec, len);
+                    file.media_codec[len] = 0;
+                } else {
+                    PB_CHECK(0);
+                }
+            } else {
+                switch ( *tag_hdr->name ) {
 
-				case TN_FILENAME:
-					PB_CHECK(TT_STRING == tag_hdr->type);
-					PB_READ_UINT16(pb, file.name_len);
-					file.name_len = file.name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : file.name_len;
-					PB_MEMCPY(pb, file.name, file.name_len);
-					file.name[file.name_len] = 0;
-					break;
+                case TN_FILENAME:
+                    PB_CHECK(TT_STRING == tag_hdr->type);
+                    PB_READ_UINT16(pb, file.name_len);
+                    file.name_len = file.name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : file.name_len;
+                    PB_MEMCPY(pb, file.name, file.name_len);
+                    file.name[file.name_len] = 0;
+                    break;
 
-				case TN_FILESIZE:
-					PB_CHECK(TT_UINT32 == tag_hdr->type);
-					PB_READ_UINT32(pb, file.size);
-					break;
+                case TN_FILESIZE:
+                    PB_CHECK(TT_UINT32 == tag_hdr->type);
+                    PB_READ_UINT32(pb, file.size);
+                    break;
 
-				case TN_FILESIZE_HI: {
-					uint32_t size_hi;
-					PB_CHECK(TT_UINT32 == tag_hdr->type);
-					PB_READ_UINT32(pb, size_hi);
-					file.size += (uint64_t)size_hi << 32;
-					break;
-				}
+                case TN_FILESIZE_HI: {
+                    uint32_t size_hi;
+                    PB_CHECK(TT_UINT32 == tag_hdr->type);
+                    PB_READ_UINT32(pb, size_hi);
+                    file.size += (uint64_t)size_hi << 32;
+                    break;
+                }
 
-				case TN_FILERATING:
-					PB_CHECK(TT_UINT32 == tag_hdr->type);
-					PB_READ_UINT32(pb, file.rating);
+                case TN_FILERATING:
+                    PB_CHECK(TT_UINT32 == tag_hdr->type);
+                    PB_READ_UINT32(pb, file.rating);
                     if ( file.rating > 5 ) {
                         file.rating = 5;
                     }
-					break;
+                    break;
 
-				case TN_FILETYPE:
-					if ( TT_UINT32 == tag_hdr->type ) {
-						PB_READ_UINT32(pb, file.type);
-					} else if ( TT_STRING == tag_hdr->type ) {
+                case TN_FILETYPE:
+                    if ( TT_UINT32 == tag_hdr->type ) {
+                        PB_READ_UINT32(pb, file.type);
+                    } else if ( TT_STRING == tag_hdr->type ) {
                         uint16_t len;
                         PB_READ_UINT16(pb, len);
                         file.type = get_ed2k_file_type((const char*)pb->ptr, len);
                         PB_SEEK(pb, len);
-					} else {
-						PB_CHECK(0);
-					}
-					break;
+                    } else {
+                        PB_CHECK(0);
+                    }
+                    break;
 
-				default:
-					PB_CHECK(0);
-				}
-			}
-		}
+                default:
+                    PB_CHECK(0);
+                }
+            }
+        }
 
         if ( db_add_file( &file, client ) < 0 ) {
             // todo: something gone wrong
@@ -238,19 +246,21 @@ process_offer_files( struct packet_buffer *pb, struct e_client *client )
             ED2KD_LOGDBG("published file(name:'%s',size:%u published", file.name, file.size);
             client->pub_file_count++;
         }
-	}
+    }
 
-	return 0;
+    return 0;
 
 malformed:
-	return -1;
+    return -1;
 }
 
 static int
 process_search_request( struct packet_buffer *pb, struct e_client *client )
 {
-    struct search_node *n, root = {0};
+    struct search_node *n, root;
     n = &root;
+
+    memset(&root, 0, sizeof root);
 
     while ( n ) {
         if( (ST_AND <= n->type) && (ST_NOT >= n->type) ) {
@@ -319,7 +329,7 @@ process_search_request( struct packet_buffer *pb, struct e_client *client )
                 uint32_t constr;
                 uint8_t type;
                 PB_READ_UINT8(pb, type);
-                
+
                 if ( SO_UINT32 == type ) {
                     PB_READ_UINT32(pb, n->int_val);
                 } else {
@@ -359,37 +369,37 @@ malformed:
 static int
 process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *client )
 {
-	PB_CHECK( client->portcheck_finished || (OP_LOGINREQUEST==opcode));
+    PB_CHECK( client->portcheck_finished || (OP_LOGINREQUEST==opcode));
 
     switch ( opcode ) {
     case OP_LOGINREQUEST:
         PB_CHECK( process_login_request(pb, client) >= 0 );
         return 0;
 
-	case OP_GETSERVERLIST:
-		send_server_ident(client);
-		send_server_list(client);
-		return 0;
+    case OP_GETSERVERLIST:
+        send_server_ident(client);
+        send_server_list(client);
+        return 0;
 
-	case OP_SEARCHREQUEST:
-		process_search_request(pb, client);
-		return 0;
+    case OP_SEARCHREQUEST:
+        process_search_request(pb, client);
+        return 0;
 
-	case OP_QUERY_MORE_RESULT:
-		// todo: may be send op_reject?
-		return 0;
+    case OP_QUERY_MORE_RESULT:
+        // todo: may be send op_reject?
+        return 0;
 
-	case OP_DISCONNECT:
-		// todo: remove client
-		return 0;
+    case OP_DISCONNECT:
+        // todo: remove client
+        return 0;
 
-	case OP_GETSOURCES:
-		send_found_sources(client, pb->ptr);
-		return 0;
+    case OP_GETSOURCES:
+        send_found_sources(client, pb->ptr);
+        return 0;
 
-	case OP_OFFERFILES:
-		PB_CHECK( process_offer_files(pb, client) >= 0 );
-		return 0;
+    case OP_OFFERFILES:
+        PB_CHECK( process_offer_files(pb, client) >= 0 );
+        return 0;
 
     case OP_CALLBACKREQUEST:
         // todo: send OP_CALLBACK_FAIL
@@ -409,73 +419,68 @@ malformed:
 static void
 read_cb( struct bufferevent *bev, void *ctx )
 {
-	struct e_client *client = (struct e_client*)ctx;
-	struct evbuffer *input = bufferevent_get_input(bev);
-	size_t src_len = evbuffer_get_length(input);
+    struct e_client *client = (struct e_client*)ctx;
+    struct evbuffer *input = bufferevent_get_input(bev);
+    size_t src_len = evbuffer_get_length(input);
 
-	while( src_len > sizeof(struct packet_header) ) {
-		unsigned char *data;
-		struct packet_buffer pb;
-		size_t packet_len;
-		int ret;
-		const struct packet_header *header =
-			(struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
+    while( src_len > sizeof(struct packet_header) ) {
+        unsigned char *data;
+        struct packet_buffer pb;
+        size_t packet_len;
+        int ret;
+        const struct packet_header *header =
+            (struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
-		if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
-			ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
-			client_delete(client);
-			return;
-		}
+        if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
+            ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
+            client_delete(client);
+            return;
+        }
 
-		// wait for full length packet
-		packet_len = header->length + sizeof(struct packet_header);
-		// todo: max packet size limit
-		if ( packet_len > src_len )
-			return;
+        // wait for full length packet
+        packet_len = header->length + sizeof(struct packet_header);
+        if ( packet_len > src_len )
+            return;
 
         data = evbuffer_pullup(input, packet_len);
         header = (struct packet_header*)data;
-		data += sizeof(struct packet_header);
+        data += sizeof(struct packet_header);
 
-		if ( PROTO_PACKED == header->proto ) {
-			unsigned char *unpacked;
-			unsigned long unpacked_len = header->length*10 + 300;
-			// todo: define and use max packet size
-			if ( unpacked_len > 50000 ) {
-				 unpacked_len = 50000;
-			}
-			unpacked = (unsigned char*)malloc(unpacked_len);
-			ret = uncompress(unpacked, &unpacked_len, data+1, header->length-1);
-			if ( Z_OK == ret ) {
-				PB_INIT(&pb, unpacked, unpacked_len);
-				ret = process_packet(&pb, *data, client);
-			} else {
-				ED2KD_LOGDBG("failed to unpack packet from %s:%u", client->dbg.ip_str, client->port);
-				ret = -1;
-			}
-			free(unpacked);
-		} else {
-			PB_INIT(&pb, data+1, header->length-1);
-			ret = process_packet(&pb, *data, client);
-		}
+        if ( PROTO_PACKED == header->proto ) {
+            unsigned long unpacked_len = MAX_UNCOMPRESSED_PACKET_SIZE;
+            unsigned char *unpacked = (unsigned char*)malloc(unpacked_len);
+            
+            ret = uncompress(unpacked, &unpacked_len, data+1, header->length-1);
+            if ( Z_OK == ret ) {
+                PB_INIT(&pb, unpacked, unpacked_len);
+                ret = process_packet(&pb, *data, client);
+            } else {
+                ED2KD_LOGDBG("failed to unpack packet from %s:%u", client->dbg.ip_str, client->port);
+                ret = -1;
+            }
+            free(unpacked);
+        } else {
+            PB_INIT(&pb, data+1, header->length-1);
+            ret = process_packet(&pb, *data, client);
+        }
 
-		
-		if (  ret < 0 ) {
-			ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
-			client_delete(client);
-			return;
-		}
 
-		evbuffer_drain(input, packet_len);
-		src_len = evbuffer_get_length(input);
-	}    
+        if (  ret < 0 ) {
+            ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
+            client_delete(client);
+            return;
+        }
+
+        evbuffer_drain(input, packet_len);
+        src_len = evbuffer_get_length(input);
+    }
 }
 
 static void
 event_cb( struct bufferevent *bev, short events, void *ctx )
 {
-	if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
-		struct e_client *client = (struct e_client*)ctx;
+    if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
+        struct e_client *client = (struct e_client*)ctx;
         ED2KD_LOGDBG("got EOF or error from %s:%u", client->dbg.ip_str, client->port);
         client_delete(client);
     }
@@ -485,9 +490,9 @@ static void
 accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *sa, int socklen, void *ctx )
 {
     struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
-	struct e_client *client;
-	struct event_base *base;
-	struct bufferevent *bev;
+    struct e_client *client;
+    struct event_base *base;
+    struct bufferevent *bev;
 
     // todo: limit total client count
     // todo: limit connections from same ip
@@ -501,15 +506,15 @@ accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr 
     client->ip = peer_sa->sin_addr.s_addr;
     client->bev_srv = bev;
 #ifdef DEBUG
-	evutil_inet_ntop(AF_INET, &(client->ip), client->dbg.ip_str, sizeof client->dbg.ip_str);
-	ED2KD_LOGNFO("client connected (%s)", client->dbg.ip_str);
+    evutil_inet_ntop(AF_INET, &(client->ip), client->dbg.ip_str, sizeof client->dbg.ip_str);
+    ED2KD_LOGNFO("client connected (%s)", client->dbg.ip_str);
 #endif
 
     bufferevent_setcb(bev, read_cb, NULL, event_cb, client);
     bufferevent_enable(bev, EV_READ|EV_WRITE);
 
     send_server_message(client, ed2kd_cfg()->welcome_msg, ed2kd_cfg()->welcome_msg_len);
-    
+
     if ( !ed2kd_cfg()->allow_lowid ) {
         static const char msg_highid[] = "WARNING: Only HighID clients!";
         send_server_message(client, msg_highid, sizeof msg_highid - 1);
@@ -541,11 +546,11 @@ signal_cb( evutil_socket_t fd, short what, void * ctx )
 int ed2kd_run()
 {
     int ret;
-	struct event_base *base;
-	struct event *sigint_event;
-	struct sockaddr_in bind_sa;
-	int bind_sa_len;
-	struct evconnlistener *listener;
+    struct event_base *base;
+    struct event *sigint_event;
+    struct sockaddr_in bind_sa;
+    int bind_sa_len;
+    struct evconnlistener *listener;
 
 #ifdef DEBUG
     {
@@ -604,11 +609,11 @@ int ed2kd_run()
     ED2KD_LOGNFO("start listening on %s:%u", ed2kd_cfg()->listen_addr, ed2kd_cfg()->listen_port);
 
     if ( db_open() < 0 ) {
-		ED2KD_LOGERR("failed to open database");
-		return EXIT_FAILURE;
-	}
-	
-	ret = event_base_dispatch(base);
+        ED2KD_LOGERR("failed to open database");
+        return EXIT_FAILURE;
+    }
+
+    ret = event_base_dispatch(base);
     if ( ret < 0 ) {
         ED2KD_LOGERR("main dispatch loop finished with error");
         return EXIT_FAILURE;
@@ -617,11 +622,11 @@ int ed2kd_run()
         ED2KD_LOGWRN("no active events in main loop");
     }
 
-	if ( db_close() < 0 ) {
+    if ( db_close() < 0 ) {
         ED2KD_LOGERR("failed to close database");
-	}
-	
-	evconnlistener_free(listener);
+    }
+
+    evconnlistener_free(listener);
     event_free(sigint_event);
     event_base_free(base);
 

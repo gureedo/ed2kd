@@ -25,8 +25,8 @@ extern struct ed2kd_cfg g_ed2kd_cfg;
 int ed2kd_config_load( const char * path )
 {
     static const char srv_ver[] = "server version" ED2KD_VER_STR " (ed2kd)";
-	config_t config;
-	int ret = 1;
+    config_t config;
+    int ret = 1;
 
     config_init(&config);
 
@@ -85,19 +85,19 @@ int ed2kd_config_load( const char * path )
             ret = -1;
         }
 
-		// server name (optional)
-		if ( config_setting_lookup_string(root, CFG_SERVER_NAME, &str_val) ) {
-			size_t len = strlen(str_val)-1;
-			g_ed2kd_cfg.server_name_len = MAX_SERVER_NAME_LEN > len ? len: MAX_SERVER_NAME_LEN;
-			strncpy(g_ed2kd_cfg.server_name, str_val, g_ed2kd_cfg.server_name_len+1);
-		}
+        // server name (optional)
+        if ( config_setting_lookup_string(root, CFG_SERVER_NAME, &str_val) ) {
+            size_t len = strlen(str_val)-1;
+            g_ed2kd_cfg.server_name_len = MAX_SERVER_NAME_LEN > len ? len: MAX_SERVER_NAME_LEN;
+            strncpy(g_ed2kd_cfg.server_name, str_val, g_ed2kd_cfg.server_name_len+1);
+        }
 
-		// server description (optional)
-		if ( config_setting_lookup_string(root, CFG_SERVER_DESCR, &str_val) ) {
-			size_t len = strlen(str_val)-1;
-			g_ed2kd_cfg.server_descr_len = MAX_SERVER_DESCR_LEN > len ? len: MAX_SERVER_DESCR_LEN;
-			strncpy(g_ed2kd_cfg.server_descr, str_val, g_ed2kd_cfg.server_descr_len+1);
-		}
+        // server description (optional)
+        if ( config_setting_lookup_string(root, CFG_SERVER_DESCR, &str_val) ) {
+            size_t len = strlen(str_val)-1;
+            g_ed2kd_cfg.server_descr_len = MAX_SERVER_DESCR_LEN > len ? len: MAX_SERVER_DESCR_LEN;
+            strncpy(g_ed2kd_cfg.server_descr, str_val, g_ed2kd_cfg.server_descr_len+1);
+        }
 
         // allow lowid
         if ( config_setting_lookup_int(root, CFG_ALLOW_LOWID, &int_val) ) {

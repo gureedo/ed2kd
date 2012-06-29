@@ -1,6 +1,10 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+struct search_node;
+struct search_file;
+struct evbuffer;
+
 #define MAX_NICK_LEN		255
 #define	MAX_FOUND_SOURCES	200
 #define	MAX_FOUND_FILES 	200
@@ -22,17 +26,17 @@ struct e_client {
     uint32_t pub_file_count;
 
 
-	// flags
-	unsigned portcheck_finished:1;
+    // flags
+    unsigned portcheck_finished:1;
     unsigned lowid:1;
 
-	struct bufferevent *bev_srv;
-	struct bufferevent *bev_cli;
+    struct bufferevent *bev_srv;
+    struct bufferevent *bev_cli;
 
 #ifdef DEBUG
-	struct {
-		char ip_str[16];
-	} dbg;
+    struct {
+        char ip_str[16];
+    } dbg;
 #endif
 };
 

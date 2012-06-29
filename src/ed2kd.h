@@ -9,6 +9,7 @@
 #define MAX_SERVER_NAME_LEN		64
 #define MAX_SERVER_DESCR_LEN	64
 #define MAX_SEARCH_FILES        200
+#define MAX_UNCOMPRESSED_PACKET_SIZE  300*1024
 
 // runtime variables
 struct ed2kd_rt {

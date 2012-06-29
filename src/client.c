@@ -1,6 +1,10 @@
 #include <stdint.h>
 #include <math.h>
 #include <malloc.h>
+#include <string.h>
+#ifdef __GNUC__
+#include <alloca.h>
+#endif
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include "client.h"
@@ -29,46 +33,46 @@ struct e_client *client_new()
 {
     struct e_client *client = (struct e_client*)malloc(sizeof(struct e_client));
     memset(client, 0, sizeof(struct e_client));
-	ed2kd_rt()->user_count++;
+    ed2kd_rt()->user_count++;
 
     return client;
 }
 
 void client_delete( struct e_client *client )
 {
-	ED2KD_LOGDBG("client removed (%s:%d)", client->dbg.ip_str, client->port);
+    ED2KD_LOGDBG("client removed (%s:%d)", client->dbg.ip_str, client->port);
 
     if( client->bev_cli ) bufferevent_free(client->bev_cli);
-	if( client->bev_srv ) bufferevent_free(client->bev_srv);
+    if( client->bev_srv ) bufferevent_free(client->bev_srv);
 
-	db_remove_source(client);
+    db_remove_source(client);
 
     free(client);
 
-	ed2kd_rt()->user_count--;
+    ed2kd_rt()->user_count--;
 }
 
 void send_id_change( struct e_client *client )
 {
-	struct packet_id_change data;
+    struct packet_id_change data;
 
-	data.hdr.proto = PROTO_EDONKEY;
-	data.hdr.length = sizeof data - sizeof(struct packet_header);
-	data.opcode = OP_IDCHANGE;
-   	data.user_id = client->id;
-	data.tcp_flags = ed2kd_cfg()->srv_tcp_flags;
+    data.hdr.proto = PROTO_EDONKEY;
+    data.hdr.length = sizeof data - sizeof(struct packet_header);
+    data.opcode = OP_IDCHANGE;
+    data.user_id = client->id;
+    data.tcp_flags = ed2kd_cfg()->srv_tcp_flags;
 
-	bufferevent_write(client->bev_srv, &data, sizeof data);
+    bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
 void send_server_message( struct e_client *client, const char *msg, uint16_t len )
 {
     struct packet_server_message data;
 
-	data.hdr.proto = PROTO_EDONKEY;
-	data.hdr.length = sizeof data - sizeof(struct packet_header) + len;
-	data.opcode = OP_SERVERMESSAGE;
-	data.msg_len = len;
+    data.hdr.proto = PROTO_EDONKEY;
+    data.hdr.length = sizeof data - sizeof(struct packet_header) + len;
+    data.opcode = OP_SERVERMESSAGE;
+    data.msg_len = len;
 
     bufferevent_write(client->bev_srv, &data, sizeof data);
     bufferevent_write(client->bev_srv, msg, len);
@@ -89,16 +93,16 @@ void send_server_status( struct e_client *client )
 
 void send_server_ident( struct e_client *client )
 {
-	struct packet_server_ident data;
+    struct packet_server_ident data;
 
-	data.hdr.proto = PROTO_EDONKEY;
-	data.hdr.length = sizeof data - sizeof(struct packet_header);
-	data.opcode = OP_SERVERSTATUS;
-	memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
-	data.ip = ed2kd_cfg()->listen_addr_int;
-	data.port = ed2kd_cfg()->listen_port;
-	data.tag_count = (ed2kd_cfg()->server_name_len>0) + (ed2kd_cfg()->server_descr_len>0);
-	
+    data.hdr.proto = PROTO_EDONKEY;
+    data.hdr.length = sizeof data - sizeof(struct packet_header);
+    data.opcode = OP_SERVERSTATUS;
+    memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
+    data.ip = ed2kd_cfg()->listen_addr_int;
+    data.port = ed2kd_cfg()->listen_port;
+    data.tag_count = (ed2kd_cfg()->server_name_len>0) + (ed2kd_cfg()->server_descr_len>0);
+
     if ( data.tag_count > 0 ) {
         struct evbuffer *buf = evbuffer_new();
         evbuffer_add(buf, &data, sizeof data);
@@ -117,7 +121,7 @@ void send_server_ident( struct e_client *client )
             evbuffer_add(buf, &th, sizeof th);
             evbuffer_add(buf, data, data_len);
         }
-    
+
         if ( ed2kd_cfg()->server_descr_len > 0 ) {
             struct tag_header th;
             size_t data_len = sizeof(uint16_t) + ed2kd_cfg()->server_descr_len;
@@ -137,8 +141,8 @@ void send_server_ident( struct e_client *client )
             struct packet_header *ph = (struct packet_header*)evbuffer_pullup(buf, sizeof(struct packet_header));
             ph->length = evbuffer_get_length(buf) - sizeof(struct packet_header);
         }
-	
-	    bufferevent_write_buffer(client->bev_srv, buf);
+
+        bufferevent_write_buffer(client->bev_srv, buf);
         evbuffer_free(buf);
     } else {
         bufferevent_write(client->bev_srv, &data, sizeof data);
@@ -154,14 +158,14 @@ void send_search_result( struct e_client *client, struct search_node *search_tre
 {
     size_t count = MAX_SEARCH_FILES;
     struct evbuffer *buf = evbuffer_new();
-    struct packet_search_result data = {0};
+    struct packet_search_result data;
 
     data.hdr.proto = PROTO_EDONKEY;
     //data.length = 0;
     data.opcode = OP_SEARCHRESULT;
     //data.files_count = 0;
     evbuffer_add(buf, &data, sizeof data);
-    
+
     if ( db_search_file(search_tree, buf, &count) >= 0 ) {
         struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof(struct packet_search_result));
         ph->hdr.length = evbuffer_get_length(buf) - sizeof(struct packet_header);
@@ -175,7 +179,7 @@ void send_search_result( struct e_client *client, struct search_node *search_tre
 void write_search_file( struct evbuffer *buf, const struct search_file *file )
 {
     struct search_file_entry sfe;
-            
+
     memcpy(sfe.hash, file->hash, sizeof sfe.hash);
     sfe.id = file->client_id;
     sfe.port = file->client_port;
@@ -192,7 +196,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
         *th.name = TN_FILENAME;
         *(uint16_t*)data = file->name_len;
         memcpy(data+sizeof(uint16_t), file->name, file->name_len);
-             
+
         evbuffer_add(buf, &th, sizeof th);
         evbuffer_add(buf, data, data_len);
     }
@@ -278,7 +282,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
         evbuffer_add(buf, th, th_len);
         evbuffer_add(buf, &file->media_length, sizeof file->media_length);
     }
-            
+
     if ( file->media_bitrate ) {
         uint16_t name_len = sizeof(TNS_MEDIA_BITRATE)-1;
         size_t th_len = sizeof(struct tag_header)-1+name_len;
@@ -290,7 +294,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
         evbuffer_add(buf, th, th_len);
         evbuffer_add(buf, &file->media_bitrate, sizeof file->media_bitrate);
     }
-            
+
     if ( file->media_codec_len ) {
         uint16_t name_len = sizeof(TNS_MEDIA_CODEC)-1;
         size_t th_len = sizeof(struct tag_header)-1+name_len;
@@ -313,24 +317,24 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
 
 void send_found_sources( struct e_client *client, const unsigned char *hash )
 {
-	uint8_t src_count = MAX_FOUND_SOURCES;
-	struct e_source sources[MAX_FOUND_SOURCES];
-	struct packet_found_sources data;
+    uint8_t src_count = MAX_FOUND_SOURCES;
+    struct e_source sources[MAX_FOUND_SOURCES];
+    struct packet_found_sources data;
 
-	db_get_sources(hash, sources, &src_count);
+    db_get_sources(hash, sources, &src_count);
 
-	data.hdr.proto = PROTO_EDONKEY;
-	memcpy(data.hash, hash, sizeof data.hash);
-	data.hdr.length = sizeof data - sizeof(struct packet_header) + src_count*sizeof(struct e_source);
-	data.opcode = OP_FOUNDSOURCES;
-	data.count = src_count;
-	bufferevent_write(client->bev_srv, &data, sizeof data);
-	bufferevent_write(client->bev_srv, sources, src_count*sizeof(struct e_source));
+    data.hdr.proto = PROTO_EDONKEY;
+    memcpy(data.hash, hash, sizeof data.hash);
+    data.hdr.length = sizeof data - sizeof(struct packet_header) + src_count*sizeof(struct e_source);
+    data.opcode = OP_FOUNDSOURCES;
+    data.count = src_count;
+    bufferevent_write(client->bev_srv, &data, sizeof data);
+    bufferevent_write(client->bev_srv, sources, src_count*sizeof(struct e_source));
 }
 
 void send_reject( struct e_client *client )
 {
-	static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_REJECT };
+    static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_REJECT };
     bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
@@ -342,20 +346,20 @@ void send_callback_fail( struct e_client *client )
 
 void client_portcheck_finish( struct e_client *client, enum portcheck_result result )
 {
-	if ( client->bev_cli ) {
+    if ( client->bev_cli ) {
         bufferevent_free(client->bev_cli);
-	    client->bev_cli = NULL;
+        client->bev_cli = NULL;
     }
-	client->portcheck_finished = 1;
+    client->portcheck_finished = 1;
     client->lowid = (PORTCHECK_SUCCESS == result);
 
     if ( client->lowid ) {
         static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
         ED2KD_LOGDBG("port check failed (%s:%d)", client->dbg.ip_str, client->port);
         send_server_message(client, msg_lowid, sizeof msg_lowid - 1);
-        // todo: 
-    } 
-    
+        // todo:
+    }
+
     if ( client->lowid ) {
         if ( ed2kd_cfg()->allow_lowid ) {
             client->id = get_next_lowid();
