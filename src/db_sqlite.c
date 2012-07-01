@@ -2,10 +2,10 @@
 #include <stdint.h>
 #include <malloc.h>
 #include <sqlite3.h>
-#include "../log.h"
-#include "../db.h"
-#include "../client.h"
-#include "../util.h"
+#include "log.h"
+#include "db.h"
+#include "client.h"
+#include "util.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "sqlite10.lib")

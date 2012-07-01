@@ -1,9 +1,41 @@
-cmake_minimum_required (VERSION 2.6)
-project (ed2kd)
+CMAKE_MINIMUM_VERSION(VERSION 2.8)
+PROJECT (ed2kd C)
 
-OPTION(BACKEND_SQLITE3 "Use sqlite3 database" OFF)
+INCLUDE(${CMAKE_CURRENT_LIST_DIR}/FindPackageHandleStandardArgs.cmake)
 
-SET(SRCS client.c config.c ed2kd.c log.c main.c portcheck.c util.c)
+CMAKE_DEPENDENT_OPTION(USE_SQLITE3 "Use SQLite3 database" OFF
+    "NOT USE_MYSQL" OFF)
+CMAKE_DEPENDENT_OPTION(USE_MYSQL "Use MySQL database" OFF
+    "NOT USE_SQLITE3" OFF)
 
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+    ${CMAKE_SOURCE_DIR}/cmake/modules)
 
-add_executable(ed2kd $(SRCS))
+FIND_PACKAGE(Libevent REQUIRED)
+FIND_PACKAGE(Libconfig REQUIRED)
+FIND_PACKAGE(ZLIB REQUIRED)
+
+SET(INCLUDES ${LIBEVENT_INCLUDE_DIRS} ${LIBCONFIG_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+
+SET(LIBS ${LIBCONFIG_LIBRARIES} ${LIBCONFIG_LIBRARIES} ${ZLIB_LIBRARIES} )
+
+SET(SOURCES client.c config.c ed2kd.c log.c main.c portcheck.c util.c)
+
+IF( ${USE_SQLITE3} )
+    FIND_PACKAGE(sqlite3 REQUIRED)
+    LIST(APPEND INCLUDES ${SQLITE3_INCLUDE_DIRS})
+    LIST(APPEND LIBS ${SQLITE3_LIBRARIES})
+    LIST(APPEND SOURCES db_sqlite.c)
+ENDIF()
+
+IF( ${USE_MYSQL} )
+    message(FATAL_ERROR "Not yet implemented")
+ENDIF()
+
+INCLUDE_DIRECTORIES($(INCLUDES))
+ADD_EXECUTABLE(ed2kd $(SOURCES))
+target_link_libraries(ed2kd ${LIBS})
+
+install(TARGETS ed2kd
+    RUNTIME DESTINATION bin
+)
