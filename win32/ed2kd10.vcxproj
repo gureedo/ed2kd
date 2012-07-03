@@ -138,15 +138,13 @@
   <ItemGroup>
     <ClCompile Include="..\src\client.c" />
     <ClCompile Include="..\src\config.c" />
-    <ClCompile Include="..\src\db_sqlite\db_sqlite.c" />
+    <ClCompile Include="..\src\db_sqlite.c" />
     <ClCompile Include="..\src\ed2kd.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\portcheck.c" />
     <ClCompile Include="..\src\util.c" />
     <ClCompile Include="..\src\win32\getopt_long.c" />
-    <ClCompile Include="..\src\win32\vwarnx.c" />
-    <ClCompile Include="..\src\win32\warnx.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\client.h" />

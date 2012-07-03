@@ -5,6 +5,7 @@
 #ifdef WIN32
 #include <winsock2.h>
 #endif
+#include <event2/util.h>
 #include "ed2kd.h"
 #include "config.h"
 #include "ed2k_proto.h"
@@ -42,7 +43,10 @@ int main( int argc, char *argv[] )
     WSADATA WSAData;
 #endif
 
-    ed2kd_init();
+    if ( evutil_secure_rng_init() < 0 ) {
+        ED2KD_LOGERR("Failed to seed random number generator");
+        return EXIT_FAILURE;
+    }
 
     // parse command line arguments
     opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
@@ -54,9 +58,9 @@ int main( int argc, char *argv[] )
 
             case 'g': {
                 unsigned char hash[HASH_SIZE];
-                char hex_hash[sizeof(hash)*2+1];
+                char hex_hash[(sizeof hash)*2+1];
                 get_random_user_hash(hash);
-                bin2hex(hash, hex_hash, sizeof(hex_hash));
+                bin2hex(hash, hex_hash, sizeof hex_hash);
                 puts(hex_hash);
                 return EXIT_SUCCESS;
             }
@@ -81,9 +85,9 @@ int main( int argc, char *argv[] )
     WSAStartup(0x0201, &WSAData);
 #endif
 
-    ret = ed2kd_run();
+    ed2kd_init();
 
-    ed2kd_config_free();
+    ret = ed2kd_run();
 
     return ret;
 }

@@ -227,7 +227,6 @@ failed:
     return -1;
 }
 
-// todo: buffer overflow protection for name_term
 int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *count )
 {
     int err;
@@ -235,7 +234,8 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
     sqlite3_stmt *stmt = 0;
     size_t i;
     struct {
-        char name_term[MAX_NAME_TERM_LEN];
+        char name_term[MAX_NAME_TERM_LEN+1];
+        size_t name_len;
         uint64_t minsize;
         uint64_t maxsize;
         uint64_t srcavail;
@@ -246,7 +246,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         struct search_node *codec_node;
         struct search_node *type_node;
     } params;
-    char query[MAX_SEARCH_QUERY_LEN] =
+    char query[MAX_SEARCH_QUERY_LEN+1] =
         " SELECT f.hash,f.name,f.size,f.type,f.ext,f.srcavail,f.srccomplete,f.rating,f.rated_count,"
         "  (SELECT sid FROM sources WHERE fid=f.fid LIMIT 1) AS sid,"
         "  f.mlength,f.mbitrate,f.mcodec "
@@ -261,6 +261,8 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
         if ( (ST_AND <= snode->type) && (ST_NOT >= snode->type) ) {
             if ( !snode->left_visited ) {
                 if ( snode->string_term ) {
+                    params.name_len++;
+                    DB_CHECK( params.name_len < sizeof params.name_term );
                     strcat(params.name_term, "(");
                 }
                 snode->left_visited = 1;
@@ -271,18 +273,22 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
                     const char *oper = 0;
                     switch( snode->type ) {
                     case ST_AND:
+                        params.name_len += 5;
                         oper = " AND ";
                         break;
                     case ST_OR:
+                        params.name_len += 4;
                         oper = " OR ";
                         break;
                     case ST_NOT:
+                        params.name_len += 5;
                         oper = " NOT ";
                         break;
 
                     default:
                         DB_CHECK(0);
                     }
+                    DB_CHECK( params.name_len < sizeof params.name_term );
                     strcat(params.name_term, oper);
                 }
                 snode->right_visited = 1;
@@ -290,12 +296,16 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
                 continue;
             } else {
                 if ( snode->string_term ) {
+                    params.name_len++;
+                    DB_CHECK( params.name_len < sizeof params.name_term);
                     strcat(params.name_term, ")");
                 }
             }
         } else {
             switch ( snode->type ) {
             case ST_STRING:
+                params.name_len += snode->str_len;
+                DB_CHECK( params.name_len < sizeof params.name_term );
                 strncat(params.name_term, snode->str_val, snode->str_len);
                 break;
             case ST_EXTENSION:
@@ -362,7 +372,7 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
     }
     strcat(query, " LIMIT ?");
 
-    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, strlen(query)+1, &stmt, &tail) );
+    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, params.name_len+1, &stmt, &tail) );
 
     i=1;
     DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.name_term, strlen(params.name_term)+1, SQLITE_STATIC) );

@@ -99,7 +99,7 @@ void send_server_ident( struct e_client *client )
     data.hdr.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_SERVERSTATUS;
     memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
-    data.ip = ed2kd_cfg()->listen_addr_int;
+    data.ip = ed2kd_cfg()->listen_addr_inaddr;
     data.port = ed2kd_cfg()->listen_port;
     data.tag_count = (ed2kd_cfg()->server_name_len>0) + (ed2kd_cfg()->server_descr_len>0);
 

@@ -19,9 +19,6 @@
     <Filter Include="Header Files\compat">
       <UniqueIdentifier>{fc77cfdd-16e1-4d8b-b2b1-7556c850f60c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\db">
-      <UniqueIdentifier>{4088202b-96bc-4432-a8dd-4895815eb09a}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\client.c">
@@ -45,17 +42,11 @@
     <ClCompile Include="..\src\win32\getopt_long.c">
       <Filter>Source Files\compat</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\win32\vwarnx.c">
-      <Filter>Source Files\compat</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\win32\warnx.c">
-      <Filter>Source Files\compat</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\portcheck.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\db_sqlite\db_sqlite.c">
-      <Filter>Source Files\db</Filter>
+    <ClCompile Include="..\src\db_sqlite.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

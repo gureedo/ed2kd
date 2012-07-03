@@ -44,8 +44,6 @@ int ed2kd_config_load( const char * path )
         // listen address
         if ( config_setting_lookup_string(root, CFG_LISTEN_ADDR, &str_val) ) {
             strncpy(g_ed2kd_cfg.listen_addr, str_val, sizeof(g_ed2kd_cfg.listen_addr));
-            // in_addr value of listen_addr
-            evutil_inet_pton(AF_INET, g_ed2kd_cfg.listen_addr, &g_ed2kd_cfg.listen_addr_int);
         } else {
             ED2KD_LOGERR("config: " CFG_LISTEN_ADDR " missing");
             ret = -1;
@@ -116,8 +114,4 @@ int ed2kd_config_load( const char * path )
     config_destroy(&config);
 
     return ret;
-}
-
-void ed2kd_config_free()
-{
 }

@@ -26,7 +26,7 @@ struct ed2kd_rt *ed2kd_rt();
 struct ed2kd_cfg
 {
     char listen_addr[15];
-	uint32_t listen_addr_int;
+	uint32_t listen_addr_inaddr;
     uint16_t listen_port;
     int listen_backlog;
 	unsigned char hash[16];

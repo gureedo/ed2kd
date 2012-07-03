@@ -38,14 +38,11 @@ struct ed2kd_rt *ed2kd_rt()
 
 int ed2kd_init()
 {
-    if ( evutil_secure_rng_init() < 0 ) {
-        ED2KD_LOGERR("Failed to seed random number generator");
-        return -1;
-    }
     memset(&g_ed2kd_cfg, 0, sizeof(g_ed2kd_cfg));
     memset(&g_ed2kd_rt, 0, sizeof(g_ed2kd_rt));
 
     g_ed2kd_cfg.srv_tcp_flags = SRV_TCPFLG_COMPRESSION | SRV_TCPFLG_TYPETAGINTEGER | SRV_TCPFLG_LARGEFILES;
+    evutil_inet_pton(AF_INET, g_ed2kd_cfg.listen_addr, &g_ed2kd_cfg.listen_addr_inaddr);
 
     return 0;
 }

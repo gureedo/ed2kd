@@ -64,11 +64,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <err.h>
 #include <errno.h>
-#include <getopt.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 
 #ifdef REPLACE_GETOPT
 int	opterr = 1;		/* if error message should be printed */
@@ -111,6 +112,17 @@ static const char ambig[] = "ambiguous option -- %.*s";
 static const char noarg[] = "option doesn't take an argument -- %.*s";
 static const char illoptchar[] = "unknown option -- %c";
 static const char illoptstring[] = "unknown option -- %s";
+
+void warnx(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "%s: ", _pgmptr);
+    if (fmt != NULL)
+        vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+}
 
 /*
  * Compute the greatest common divisor of a and b.
