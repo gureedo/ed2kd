@@ -48,7 +48,7 @@
     <ClCompile Include="..\src\server.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\event_callback.cpp">
+    <ClCompile Include="..\src\event_callback.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

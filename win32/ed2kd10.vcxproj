@@ -139,7 +139,7 @@
     <ClCompile Include="..\src\client.c" />
     <ClCompile Include="..\src\config.c" />
     <ClCompile Include="..\src\db_sqlite.c" />
-    <ClCompile Include="..\src\event_callback.cpp" />
+    <ClCompile Include="..\src\event_callback.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\portcheck.c" />
