@@ -2,8 +2,10 @@
 #define UTIL_H
 
 /**
-  @file util.h utilities collection
+  @file util.h utilities
 */
+
+#include <stdint.h>
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
@@ -40,7 +42,7 @@ int bin2hex( const unsigned char *src, char *dst, size_t dst_len );
 void get_random_user_hash( unsigned char *hash );
 
 /**
-  @brief 
+  @brief get integer eDonkey2000 type from string type
   @param type   string type
   @param len    length of type without null byte
 */

@@ -1,10 +1,9 @@
+#include "config.h"
 #include <string.h>
-#include <stdint.h>
 #include <libconfig.h>
 #include <event2/util.h>
-#include "config.h"
 #include "log.h"
-#include "ed2kd.h"
+#include "server.h"
 #include "ed2k_proto.h"
 #include "version.h"
 #include "util.h"
@@ -20,15 +19,15 @@
 #define CFG_SERVER_DESCR            "server_descr"
 #define CFG_ALLOW_LOWID             "allow_lowid"
 
-extern struct ed2kd_cfg g_ed2kd_cfg;
-
-int ed2kd_config_load( const char * path )
+int config_load( const char * path )
 {
     static const char srv_ver[] = "server version" ED2KD_VER_STR " (ed2kd)";
     config_t config;
     int ret = 1;
+    server_config_t *server_cfg = (server_config_t *)malloc(sizeof *server_cfg);
 
     config_init(&config);
+    memset(server_cfg, 0, sizeof *server_cfg);
 
     if ( NULL == path ) {
         path = CFG_DEFAULT_PATH;
@@ -43,7 +42,7 @@ int ed2kd_config_load( const char * path )
 
         // listen address
         if ( config_setting_lookup_string(root, CFG_LISTEN_ADDR, &str_val) ) {
-            strncpy(g_ed2kd_cfg.listen_addr, str_val, sizeof(g_ed2kd_cfg.listen_addr));
+            strncpy(server_cfg->listen_addr, str_val, sizeof server_cfg->listen_addr);
         } else {
             ED2KD_LOGERR("config: " CFG_LISTEN_ADDR " missing");
             ret = -1;
@@ -51,7 +50,7 @@ int ed2kd_config_load( const char * path )
 
         // listen port
         if ( config_setting_lookup_int(root, CFG_LISTEN_PORT, &int_val) ) {
-            g_ed2kd_cfg.listen_port = (uint16_t)int_val;
+            server_cfg->listen_port = (uint16_t)int_val;
         } else {
             ED2KD_LOGERR("config: " CFG_LISTEN_PORT " missing");
             ret = -1;
@@ -59,7 +58,7 @@ int ed2kd_config_load( const char * path )
 
         // listen backlog
         if ( config_setting_lookup_int(root, CFG_LISTEN_BACKLOG, &int_val) ) {
-            g_ed2kd_cfg.listen_backlog = int_val;
+            server_cfg->listen_backlog = int_val;
         } else {
             ED2KD_LOGERR("config: " CFG_LISTEN_BACKLOG " missing");
             ret = -1;
@@ -67,17 +66,17 @@ int ed2kd_config_load( const char * path )
 
         // (optional) welcome message + predefined server version
         if ( config_setting_lookup_string(root, CFG_WELCOME_MESSAGE, &str_val) ) {
-            g_ed2kd_cfg.welcome_msg_len = sizeof srv_ver + strlen(str_val)+1;
-            evutil_snprintf(g_ed2kd_cfg.welcome_msg, sizeof(g_ed2kd_cfg.welcome_msg), "%s\n%s", srv_ver, str_val);
+            server_cfg->welcome_msg_len = sizeof srv_ver + strlen(str_val)+1;
+            evutil_snprintf(server_cfg->welcome_msg, sizeof server_cfg->welcome_msg, "%s\n%s", srv_ver, str_val);
         } else {
-            g_ed2kd_cfg.welcome_msg_len = sizeof srv_ver - sizeof(char);
-            strcpy(g_ed2kd_cfg.welcome_msg, srv_ver);
+            server_cfg->welcome_msg_len = sizeof srv_ver - sizeof(char);
+            strcpy(server_cfg->welcome_msg, srv_ver);
             ED2KD_LOGWRN("config: " CFG_WELCOME_MESSAGE " missing");
         }
 
         // server hash
         if ( config_setting_lookup_string(root, CFG_SERVER_HASH, &str_val) ) {
-            hex2bin(str_val, g_ed2kd_cfg.hash, HASH_SIZE);
+            hex2bin(str_val, server_cfg->hash, HASH_SIZE);
         } else {
             ED2KD_LOGERR("config: " CFG_SERVER_HASH " missing");
             ret = -1;
@@ -86,20 +85,20 @@ int ed2kd_config_load( const char * path )
         // server name (optional)
         if ( config_setting_lookup_string(root, CFG_SERVER_NAME, &str_val) ) {
             size_t len = strlen(str_val)-1;
-            g_ed2kd_cfg.server_name_len = MAX_SERVER_NAME_LEN > len ? len: MAX_SERVER_NAME_LEN;
-            strncpy(g_ed2kd_cfg.server_name, str_val, g_ed2kd_cfg.server_name_len+1);
+            server_cfg->server_name_len = MAX_SERVER_NAME_LEN > len ? len: MAX_SERVER_NAME_LEN;
+            strncpy(server_cfg->server_name, str_val, server_cfg->server_name_len+1);
         }
 
         // server description (optional)
         if ( config_setting_lookup_string(root, CFG_SERVER_DESCR, &str_val) ) {
             size_t len = strlen(str_val)-1;
-            g_ed2kd_cfg.server_descr_len = MAX_SERVER_DESCR_LEN > len ? len: MAX_SERVER_DESCR_LEN;
-            strncpy(g_ed2kd_cfg.server_descr, str_val, g_ed2kd_cfg.server_descr_len+1);
+            server_cfg->server_descr_len = MAX_SERVER_DESCR_LEN > len ? len: MAX_SERVER_DESCR_LEN;
+            strncpy(server_cfg->server_descr, str_val, server_cfg->server_descr_len+1);
         }
 
         // allow lowid
         if ( config_setting_lookup_int(root, CFG_ALLOW_LOWID, &int_val) ) {
-            g_ed2kd_cfg.allow_lowid = (int_val != 0);
+            server_cfg->allow_lowid = (int_val != 0);
         } else {
             ED2KD_LOGERR("config: " CFG_ALLOW_LOWID " missing");
             ret = -1;
@@ -113,5 +112,20 @@ int ed2kd_config_load( const char * path )
 
     config_destroy(&config);
 
+    if ( ret < 0 ) {
+        free(server_cfg);
+    } else {
+        server_cfg->srv_tcp_flags = SRV_TCPFLG_COMPRESSION | SRV_TCPFLG_TYPETAGINTEGER | SRV_TCPFLG_LARGEFILES;
+        evutil_inet_pton(AF_INET, server_cfg->listen_addr, &server_cfg->listen_addr_inaddr);
+        g_instance.cfg = server_cfg;
+    }
+
     return ret;
+}
+
+void config_free()
+{
+    const server_config_t *cfg = g_instance.cfg;
+    g_instance.cfg = NULL;
+    free((void*)cfg);
 }

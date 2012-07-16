@@ -1,6 +1,4 @@
-#include <stdint.h>
-#include <string.h>
-#include <malloc.h>
+#include "portcheck.h"
 #ifdef WIN32
 #include <ws2tcpip.h>
 #endif
@@ -8,15 +6,15 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <zlib.h>
+#include "server.h"
 #include "client.h"
-#include "portcheck.h"
 #include "log.h"
 #include "packet_buffer.h"
 #include "ed2k_proto.h"
-#include "ed2kd.h"
+#include "event_callback.h"
 
 static void
-send_hello( struct e_client *client )
+send_hello( client_t *client )
 {
     static const char name[] = {'e','d','2','k','d'};
     struct packet_hello data;
@@ -33,7 +31,7 @@ send_hello( struct e_client *client )
     data.hdr.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_HELLO;
     data.hash_size = 16;
-    memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
+    memcpy(data.hash, g_instance.cfg->hash, sizeof data.hash);
     data.client_id = ntohl(sa.sin_addr.s_addr);
     data.client_port = 4662;
     data.tag_count = 2;
@@ -50,7 +48,7 @@ send_hello( struct e_client *client )
 }
 
 static int
-process_hello_answer( struct packet_buffer *pb, struct e_client *client )
+process_hello_answer( packet_buffer_t *pb, client_t *client )
 {
     PB_CHECK( memcmp(client->hash, pb->ptr, HASH_SIZE) == 0 );
     PB_SEEK(pb, HASH_SIZE);
@@ -62,7 +60,7 @@ malformed:
 }
 
 static int
-process_packet( struct packet_buffer *pb, uint8_t opcode, struct e_client *client )
+process_packet( packet_buffer_t *pb, uint8_t opcode, client_t *client )
 {
     switch ( opcode ) {
     case OP_HELLOANSWER:
@@ -79,11 +77,9 @@ malformed:
     return -1;
 }
 
-static void
-read_cb( struct bufferevent *bev, void *ctx )
+void client_read( client_t *client )
 {
-    struct e_client *client = (struct e_client*)ctx;
-    struct evbuffer *input = bufferevent_get_input(bev);
+    struct evbuffer *input = bufferevent_get_input(client->bev_cli);
     size_t src_len = evbuffer_get_length(input);
 
     while( src_len > sizeof(struct packet_header) ) {
@@ -141,11 +137,8 @@ read_cb( struct bufferevent *bev, void *ctx )
     }
 }
 
-static void
-event_cb( struct bufferevent *bev, short events, void *ctx )
+void client_event( client_t *client, short events )
 {
-    struct e_client *client = (struct e_client *)ctx;
-
     if ( !client->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
         client_portcheck_finish(client, PORTCHECK_FAILED);
     } else if ( events & BEV_EVENT_CONNECTED ) {
@@ -153,7 +146,7 @@ event_cb( struct bufferevent *bev, short events, void *ctx )
     }
 }
 
-int client_portcheck_start( struct e_client *client )
+int client_portcheck_start( client_t *client )
 {
     struct sockaddr_in client_sa;
     struct event_base *base;
@@ -166,7 +159,7 @@ int client_portcheck_start( struct e_client *client )
 
     base = bufferevent_get_base(client->bev_srv);
     bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS);
-    bufferevent_setcb(bev, read_cb, NULL, event_cb, client);
+    bufferevent_setcb(bev, client_read_cb, NULL, client_event_cb, client);
     bufferevent_enable(bev, EV_READ|EV_WRITE);
 
     if ( bufferevent_socket_connect(bev, (struct sockaddr*)&client_sa, sizeof client_sa) < 0 ) {

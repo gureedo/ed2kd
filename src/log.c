@@ -1,8 +1,8 @@
+#include "log.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <event2/util.h>
 #include <stdarg.h>
-#include "log.h"
+#include <event2/util.h>
 
 void _ed2kd_log( enum log_severity svrt, const char * fmt, ... )
 {

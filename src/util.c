@@ -1,8 +1,8 @@
-#include <stdint.h>
+
+#include "util.h"
 #include <stdio.h>
 #include <string.h>
 #include <event2/util.h>
-#include "util.h"
 #include "ed2k_proto.h"
 
 int hex2bin( const char *src, unsigned char *dst, size_t dst_len )

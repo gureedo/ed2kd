@@ -1,9 +1,8 @@
+#include "db.h"
 #include <string.h>
-#include <stdint.h>
 #include <malloc.h>
 #include <sqlite3.h>
 #include "log.h"
-#include "db.h"
 #include "client.h"
 #include "util.h"
 
@@ -132,7 +131,7 @@ int db_close()
     return (SQLITE_OK == sqlite3_close(g_db)) ? 0 : -1;
 }
 
-int db_add_file( const struct pub_file *file, const struct e_client *owner )
+int db_add_file( const struct pub_file *file, const client_t *owner )
 {
     static const char query1[] =
         "UPDATE files SET name=?,ext=?,size=?,type=?,mlength=?,mbitrate=?,mcodec=? WHERE fid=?";
@@ -208,7 +207,7 @@ failed:
     return -1;
 }
 
-int db_remove_source( const struct e_client *client )
+int db_remove_source( const client_t *client )
 {
     sqlite3_stmt *stmt;
     const char *tail;
@@ -462,7 +461,7 @@ failed:
     return -1;
 }
 
-int db_get_sources( const unsigned char *hash, struct e_source *sources, uint8_t *count )
+int db_get_sources( const unsigned char *hash, file_source_t *sources, uint8_t *count )
 {
     sqlite3_stmt *stmt;
     const char *tail;

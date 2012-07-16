@@ -27,9 +27,6 @@
     <ClCompile Include="..\src\config.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\ed2kd.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\log.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -48,6 +45,12 @@
     <ClCompile Include="..\src\db_sqlite.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\server.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\event_callback.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\client.h">
@@ -57,9 +60,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\ed2k_proto.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\ed2kd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\log.h">
@@ -84,6 +84,15 @@
       <Filter>Header Files\compat</Filter>
     </ClInclude>
     <ClInclude Include="..\src\db.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\event_callback.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\job.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

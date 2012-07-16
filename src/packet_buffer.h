@@ -1,10 +1,13 @@
 #ifndef PACKET_BUFFER_H
 #define PACKET_BUFFER_H
 
-struct packet_buffer {
+#include <stdint.h>
+#include <string.h>
+
+typedef struct packet_buffer {
     const unsigned char *ptr;
     const unsigned char *end;
-};
+} packet_buffer_t;
 
 #define PB_INIT(pb, buf, len)  \
     (pb)->ptr = (buf);         \

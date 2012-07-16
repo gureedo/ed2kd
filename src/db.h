@@ -1,23 +1,29 @@
 #ifndef DB_H
 #define DB_H
 
-struct e_client;
-struct evbuffer;
+/*
+  @file db.h Database stuff
+*/
 
+#include <stdint.h>
 #include "packed_struct.h"
+
+struct client;
+struct evbuffer;
 
 #define MAX_FILENAME_LEN    255
 #define MAX_MCODEC_LEN      64
 #define MAX_FILEEXT_LEN     16
 
 PACKED_STRUCT(
-struct e_source {
+struct file_source {
     uint32_t ip;
     uint16_t port;
 };
 )
+typedef struct file_source file_source_t;
 
-struct pub_file {
+typedef struct pub_file {
     unsigned char hash[16];
     uint16_t name_len;
     char name[MAX_FILENAME_LEN+1];
@@ -29,9 +35,9 @@ struct pub_file {
     uint16_t media_codec_len;
     char media_codec[MAX_MCODEC_LEN+1];
     unsigned complete:1;
-};
+} pub_file_t;
 
-struct search_file {
+typedef struct search_file {
     const unsigned char *hash;
     uint32_t client_id;
     uint16_t client_port;
@@ -49,9 +55,9 @@ struct search_file {
     const char *media_codec;
     uint32_t srcavail;
     uint32_t srccomplete;
-};
+} search_file_t;
 
-enum search_node_type {
+typedef enum search_node_type {
     ST_EMPTY,
     // logical nodes
     ST_AND,
@@ -69,10 +75,10 @@ enum search_node_type {
     ST_SRCCOMLETE,
     ST_MINBITRATE,
     ST_MINLENGTH
-};
+} search_node_type_t;
 
-struct search_node {
-    int type;
+typedef struct search_node {
+    search_node_type_t type;
     struct search_node *parent;
     unsigned left_visited:1;
     unsigned right_visited:1;
@@ -88,15 +94,15 @@ struct search_node {
             struct search_node *right;
         };
     };
-};
+} search_node_t;
 
 int db_open();
 int db_close();
 
-int db_add_file( const struct pub_file *file, const struct e_client *owner );
-int db_remove_source( const struct e_client *owner );
-int db_search_file(struct search_node *tree, struct evbuffer *buf, size_t *count );
-int db_get_sources( const unsigned char *hash, struct e_source *buf, uint8_t *size );
+int db_add_file( const pub_file_t *file, const struct client *owner );
+int db_remove_source( const struct client *owner );
+int db_search_file( search_node_t *root, struct evbuffer *buf, size_t *count );
+int db_get_sources( const unsigned char *hash, file_source_t *out_sources, uint8_t *size );
 
 
 #endif // DB_H

@@ -1,6 +1,11 @@
 #ifndef ED2K_PROTO_H
 #define ED2K_PROTO_H
 
+/*
+  @file ed2k_proto.h eDonkey2000 protocol details
+*/
+
+#include <stdint.h>
 #include "packed_struct.h"
 
 // potocol version

@@ -1,14 +1,12 @@
-#include <stdint.h>
+#include "client.h"
 #include <math.h>
-#include <malloc.h>
 #include <string.h>
 #ifdef __GNUC__
 #include <alloca.h>
 #endif
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
-#include "client.h"
-#include "ed2kd.h"
+#include "server.h"
 #include "config.h"
 #include "ed2k_proto.h"
 #include "version.h"
@@ -18,27 +16,30 @@
 static uint32_t
 get_next_lowid()
 {
-    static uint32_t id;
+    AO_t old_id, new_id;
 
-    if ( id > 0x1000000u ) {
-        id = 1;
-    } else {
-        id++;
-    }
+    do {
+        old_id = AO_load_acquire(&g_instance.lowid_counter);
+        new_id = old_id + 1;
+        if ( new_id > 0x1000000 )
+            new_id = 0;
+    } while ( AO_fetch_compare_and_swap_release(&g_instance.lowid_counter, old_id, new_id) == old_id );
 
-    return id;
+    return new_id;
 }
 
-struct e_client *client_new()
+client_t *client_new()
 {
-    struct e_client *client = (struct e_client*)malloc(sizeof(struct e_client));
-    memset(client, 0, sizeof(struct e_client));
-    ed2kd_rt()->user_count++;
+    client_t *client = (client_t*)malloc(sizeof(client_t));
+    memset(client, 0, sizeof(client_t));
+    AO_fetch_and_add1(&g_instance.user_count);
+    pthread_mutex_init(&client->job_mutex, NULL);
+    STAILQ_INIT(&client->jqueue);
 
     return client;
 }
 
-void client_delete( struct e_client *client )
+void client_delete( client_t *client )
 {
     ED2KD_LOGDBG("client removed (%s:%d)", client->dbg.ip_str, client->port);
 
@@ -49,10 +50,10 @@ void client_delete( struct e_client *client )
 
     free(client);
 
-    ed2kd_rt()->user_count--;
+    AO_fetch_and_sub1(&g_instance.user_count);
 }
 
-void send_id_change( struct e_client *client )
+void send_id_change( client_t *client )
 {
     struct packet_id_change data;
 
@@ -60,12 +61,12 @@ void send_id_change( struct e_client *client )
     data.hdr.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_IDCHANGE;
     data.user_id = client->id;
-    data.tcp_flags = ed2kd_cfg()->srv_tcp_flags;
+    data.tcp_flags = g_instance.cfg->srv_tcp_flags;
 
     bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
-void send_server_message( struct e_client *client, const char *msg, uint16_t len )
+void send_server_message( client_t *client, const char *msg, uint16_t len )
 {
     struct packet_server_message data;
 
@@ -78,60 +79,60 @@ void send_server_message( struct e_client *client, const char *msg, uint16_t len
     bufferevent_write(client->bev_srv, msg, len);
 }
 
-void send_server_status( struct e_client *client )
+void send_server_status( client_t *client )
 {
     struct packet_server_status data;
 
     data.hdr.proto = PROTO_EDONKEY;
     data.hdr.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_SERVERSTATUS;
-    data.user_count = ed2kd_rt()->user_count;
-    data.file_count = ed2kd_rt()->file_count;
+    data.user_count = AO_load(&g_instance.user_count);
+    data.file_count = AO_load(&g_instance.file_count);
 
     bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
-void send_server_ident( struct e_client *client )
+void send_server_ident( client_t *client )
 {
     struct packet_server_ident data;
 
     data.hdr.proto = PROTO_EDONKEY;
     data.hdr.length = sizeof data - sizeof(struct packet_header);
     data.opcode = OP_SERVERSTATUS;
-    memcpy(data.hash, ed2kd_cfg()->hash, sizeof data.hash);
-    data.ip = ed2kd_cfg()->listen_addr_inaddr;
-    data.port = ed2kd_cfg()->listen_port;
-    data.tag_count = (ed2kd_cfg()->server_name_len>0) + (ed2kd_cfg()->server_descr_len>0);
+    memcpy(data.hash, g_instance.cfg->hash, sizeof data.hash);
+    data.ip = g_instance.cfg->listen_addr_inaddr;
+    data.port = g_instance.cfg->listen_port;
+    data.tag_count = (g_instance.cfg->server_name_len>0) + (g_instance.cfg->server_descr_len>0);
 
     if ( data.tag_count > 0 ) {
         struct evbuffer *buf = evbuffer_new();
         evbuffer_add(buf, &data, sizeof data);
 
-        if ( ed2kd_cfg()->server_name_len > 0 ) {
+        if ( g_instance.cfg->server_name_len > 0 ) {
             struct tag_header th;
-            size_t data_len = sizeof(uint16_t)+ed2kd_cfg()->server_name_len;
+            size_t data_len = sizeof(uint16_t) + g_instance.cfg->server_name_len;
             unsigned char *data = (unsigned char*)alloca(data_len);
 
             th.type = TT_STRING;
             th.name_len = 1;
             *th.name = TN_SERVERNAME;
-            *(uint16_t*)data = ed2kd_cfg()->server_name_len;
-            memcpy(data+sizeof(uint16_t), ed2kd_cfg()->server_name, ed2kd_cfg()->server_name_len);
+            *(uint16_t*)data = g_instance.cfg->server_name_len;
+            memcpy(data+sizeof(uint16_t), g_instance.cfg->server_name, g_instance.cfg->server_name_len);
 
             evbuffer_add(buf, &th, sizeof th);
             evbuffer_add(buf, data, data_len);
         }
 
-        if ( ed2kd_cfg()->server_descr_len > 0 ) {
+        if ( g_instance.cfg->server_descr_len > 0 ) {
             struct tag_header th;
-            size_t data_len = sizeof(uint16_t) + ed2kd_cfg()->server_descr_len;
+            size_t data_len = sizeof(uint16_t) + g_instance.cfg->server_descr_len;
             unsigned char *data = (unsigned char*)alloca(data_len);
 
             th.type = TT_STRING;
             th.name_len = 1;
             *th.name = TN_DESCRIPTION;
-            *(uint16_t*)data = ed2kd_cfg()->server_descr_len;
-            memcpy(data+sizeof(uint16_t), ed2kd_cfg()->server_descr, ed2kd_cfg()->server_descr_len);
+            *(uint16_t*)data = g_instance.cfg->server_descr_len;
+            memcpy(data+sizeof(uint16_t), g_instance.cfg->server_descr, g_instance.cfg->server_descr_len);
 
             evbuffer_add(buf, &th, sizeof th);
             evbuffer_add(buf, data, data_len);
@@ -149,12 +150,12 @@ void send_server_ident( struct e_client *client )
     }
 }
 
-void send_server_list( struct e_client *client )
+void send_server_list( client_t *client )
 {
     // TODO: implement
 }
 
-void send_search_result( struct e_client *client, struct search_node *search_tree )
+void send_search_result( client_t *client, search_node_t *search_tree )
 {
     size_t count = MAX_SEARCH_FILES;
     struct evbuffer *buf = evbuffer_new();
@@ -315,36 +316,36 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 }
 
-void send_found_sources( struct e_client *client, const unsigned char *hash )
+void send_found_sources( client_t *client, const unsigned char *hash )
 {
     uint8_t src_count = MAX_FOUND_SOURCES;
-    struct e_source sources[MAX_FOUND_SOURCES];
+    file_source_t sources[MAX_FOUND_SOURCES];
     struct packet_found_sources data;
 
     db_get_sources(hash, sources, &src_count);
 
     data.hdr.proto = PROTO_EDONKEY;
     memcpy(data.hash, hash, sizeof data.hash);
-    data.hdr.length = sizeof data - sizeof(struct packet_header) + src_count*sizeof(struct e_source);
+    data.hdr.length = sizeof data - sizeof(struct packet_header) + src_count*sizeof(sources[0]);
     data.opcode = OP_FOUNDSOURCES;
     data.count = src_count;
     bufferevent_write(client->bev_srv, &data, sizeof data);
-    bufferevent_write(client->bev_srv, sources, src_count*sizeof(struct e_source));
+    bufferevent_write(client->bev_srv, sources, src_count*sizeof(sources[0]));
 }
 
-void send_reject( struct e_client *client )
+void send_reject( client_t *client )
 {
     static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_REJECT };
     bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
-void send_callback_fail( struct e_client *client )
+void send_callback_fail( client_t *client )
 {
     static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_CALLBACK_FAIL };
     bufferevent_write(client->bev_srv, &data, sizeof data);
 }
 
-void client_portcheck_finish( struct e_client *client, enum portcheck_result result )
+void client_portcheck_finish( client_t *client, portcheck_result_t result )
 {
     if ( client->bev_cli ) {
         bufferevent_free(client->bev_cli);
@@ -361,7 +362,7 @@ void client_portcheck_finish( struct e_client *client, enum portcheck_result res
     }
 
     if ( client->lowid ) {
-        if ( ed2kd_cfg()->allow_lowid ) {
+        if ( g_instance.cfg->allow_lowid ) {
             client->id = get_next_lowid();
             client->port = 0;
         } else {
