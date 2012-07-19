@@ -55,7 +55,7 @@ void client_portcheck_finish( client_t *client, portcheck_result_t result );
 
 void send_id_change( client_t *client );
 
-void send_server_message( client_t *client, const char *msg, uint16_t msg_len );
+void send_server_message( client_t *client, const char *msg, size_t msg_len );
 
 void send_server_ident( client_t *client );
 

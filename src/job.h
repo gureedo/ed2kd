@@ -11,7 +11,8 @@ typedef enum job_type {
     JOB_SERVER_EVENT,
     JOB_SERVER_READ,
     JOB_CLIENT_EVENT,
-    JOB_CLIENT_READ
+    JOB_CLIENT_READ,
+    JOB_CLIENT_DELETE
 } job_type_t;
 
 typedef struct job {

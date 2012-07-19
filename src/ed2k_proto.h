@@ -78,36 +78,40 @@ struct packet_header {
     uint32_t length;
 }
 );
+typedef struct packet_header packet_header_t;
 
 PACKED_STRUCT(
 struct packet_server_message {
-    struct packet_header hdr;
+    packet_header_t hdr;
     uint8_t opcode;
     uint16_t msg_len;
 }
 );
+typedef struct packet_server_message packet_server_message_t;
 
 PACKED_STRUCT(
 struct packet_id_change {
-    struct packet_header hdr;
+    packet_header_t hdr;
     uint8_t opcode;
     uint32_t user_id;
     uint32_t tcp_flags;
 }
 );
+typedef struct packet_id_change packet_id_change_t;
 
 PACKED_STRUCT(
 struct packet_server_status {
-    struct packet_header hdr;
+    packet_header_t hdr;
     uint8_t opcode;
     uint32_t user_count;
     uint32_t file_count;
 }
 );
+typedef struct packet_server_status packet_server_status_t;
 
 PACKED_STRUCT(
 struct packet_server_ident {
-    struct packet_header hdr;
+    packet_header_t hdr;
     uint8_t opcode;
     unsigned char hash[HASH_SIZE];
     uint32_t ip;
@@ -115,14 +119,16 @@ struct packet_server_ident {
     uint32_t tag_count;
 }
 );
+typedef struct packet_server_ident packet_server_ident_t;
 
 PACKED_STRUCT(
 struct packet_search_result {
-    struct packet_header hdr;
+    packet_header_t hdr;
     uint8_t opcode;
     uint32_t files_count;
 }
 );
+typedef struct packet_search_result packet_search_result_t;
 
 PACKED_STRUCT(
 struct search_file_entry {
@@ -132,6 +138,7 @@ struct search_file_entry {
     uint32_t tag_count;
 }
 );
+typedef struct search_file_entry search_file_entry_t;
 
 PACKED_STRUCT(
 struct packet_found_sources {
@@ -141,6 +148,7 @@ struct packet_found_sources {
     uint8_t count;
 }
 );
+typedef struct packet_found_sources packet_found_sources_t;
 
 PACKED_STRUCT(
 struct packet_hello {
@@ -165,6 +173,7 @@ struct packet_hello {
     uint16_t port; //0
 }
 );
+typedef struct packet_hello packet_hello_t;
 
 PACKED_STRUCT(
 struct tag_header
@@ -174,6 +183,16 @@ struct tag_header
     unsigned char name[1];
 }
 );
+typedef struct tag_header tag_header_t;
+
+PACKED_STRUCT(
+struct tag_strval
+{
+    uint16_t len;
+    unsigned char str[1];
+}
+);
+typedef struct tag_strval tag_strval_t;
 
 PACKED_STRUCT(
 struct short_tag {

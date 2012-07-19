@@ -12,6 +12,7 @@
 
 struct event_base;
 struct bufferevent;
+struct client;
 
 #define MAX_WELCOMEMSG_LEN		1024
 #define MAX_SERVER_NAME_LEN		64
@@ -59,6 +60,9 @@ typedef struct server_instance {
 extern server_instance_t g_instance;
 
 void server_add_job( job_t *job );
+
 void *server_job_worker( void *ctx );
+
+void server_remove_client_jobs( const struct client *clnt );
 
 #endif // SERVER_H

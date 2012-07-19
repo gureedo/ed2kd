@@ -34,6 +34,20 @@ void server_add_job( job_t *job )
     }
 }
 
+void server_remove_client_jobs( const struct client *clnt )
+{
+    job_t *j, *j_tmp;
+    pthread_mutex_lock(&g_instance.job_mutex);
+    STAILQ_FOREACH_SAFE( j, &g_instance.jqueue, qentry, j_tmp ) {
+        if ( clnt == j->client ) {
+            STAILQ_REMOVE_AFTER(&g_instance.jqueue, j, qentry);
+        }
+        free(j);
+    }
+    // todo: remove
+    pthread_mutex_unlock(&g_instance.job_mutex);
+}
+
 static int
 process_login_request( struct packet_buffer *pb, client_t *client )
 {
@@ -487,7 +501,7 @@ server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
 
     client = client_new();
 
-    bev = bufferevent_socket_new(g_instance.evbase, fd, BEV_OPT_CLOSE_ON_FREE);
+    bev = bufferevent_socket_new(g_instance.evbase, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
 
     client->ip = peer_sa->sin_addr.s_addr;
     client->bev_srv = bev;
@@ -547,28 +561,25 @@ void *server_job_worker( void *ctx )
 
             case JOB_SERVER_EVENT: {
                 job_event_t *j = (job_event_t *)job;
-                client_event(j->hdr.client, j->events);
+                client_event(client, j->events);
                 break;
             }
 
             case JOB_CLIENT_EVENT: {
                 job_event_t *j = (job_event_t *)job;
-                server_event(j->hdr.client, j->events);
+                server_event(client, j->events);
                 break;
             }
 
-            case JOB_SERVER_READ: {
-                server_read(job->client);
+            case JOB_SERVER_READ:
+                server_read(client);
                 break;
-            }
 
-            case JOB_CLIENT_READ: {
-                client_read(job->client);
+            case JOB_CLIENT_READ:
+                client_read(client);
                 break;
-            }
 
             default:
-                // todo: unknown job
                 break;
             }
 
