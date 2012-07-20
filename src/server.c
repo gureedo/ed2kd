@@ -17,7 +17,7 @@ void server_add_job( job_t *job )
 {
     if ( job->client ) {
         pthread_mutex_lock(&job->client->job_mutex);
-        if ( AO_load_acquire(&job->client->busy) ) {
+        if ( !job->client->pending_evcnt ) {
             STAILQ_INSERT_TAIL(&job->client->jqueue, job, qentry);
         } else {
             pthread_mutex_lock(&g_instance.job_mutex);
@@ -25,6 +25,7 @@ void server_add_job( job_t *job )
             pthread_mutex_unlock(&g_instance.job_mutex);
             pthread_cond_signal(&g_instance.job_cond);
         }
+        job->client->pending_evcnt++;
         pthread_mutex_unlock(&job->client->job_mutex);
     } else {
         pthread_mutex_lock(&g_instance.job_mutex);
@@ -434,7 +435,7 @@ server_read( client_t *client )
 
         if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
             ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
-            client_delete(client);
+            client_schedule_delete(client);
             return;
         }
 
@@ -468,7 +469,7 @@ server_read( client_t *client )
 
         if (  ret < 0 ) {
             ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
-            client_delete(client);
+            client_schedule_delete(client);
             return;
         }
 
@@ -482,7 +483,7 @@ server_event( client_t *client, short events )
 {
     if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
         ED2KD_LOGDBG("got EOF or error from %s:%u", client->dbg.ip_str, client->port);
-        client_delete(client);
+        client_schedule_delete(client);
     }
 }
 
@@ -544,10 +545,6 @@ void *server_job_worker( void *ctx )
         
         client = job->client;
 
-        if ( client ) {
-            AO_store_release(&client->busy, 1);
-        }
-
         pthread_mutex_unlock(&g_instance.job_mutex);
 
         while ( job ) {
@@ -587,14 +584,17 @@ void *server_job_worker( void *ctx )
             job = NULL;
 
             if ( client ) {
-                pthread_mutex_lock(&client->job_mutex);
-                if ( STAILQ_EMPTY(&client->jqueue) ) {
-                    AO_store_release(&client->busy, 0);
+                if ( client->sched_del ) {
+                    client_delete(client);
                 } else {
-                    job = STAILQ_FIRST(&client->jqueue);
-                    STAILQ_REMOVE_HEAD(&client->jqueue, qentry);
+                    pthread_mutex_lock(&client->job_mutex);
+                    client->pending_evcnt--;
+                    if ( !STAILQ_EMPTY(&client->jqueue) ) {
+                        job = STAILQ_FIRST(&client->jqueue);
+                        STAILQ_REMOVE_HEAD(&client->jqueue, qentry);
+                    }
+                    pthread_mutex_unlock(&client->job_mutex);
                 }
-                pthread_mutex_unlock(&client->job_mutex);
             }
         }
     }

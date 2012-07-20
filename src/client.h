@@ -37,7 +37,8 @@ typedef struct client {
     struct bufferevent *bev_cli;
 
     pthread_mutex_t job_mutex;
-    volatile AO_t busy;
+    volatile AO_t pending_evcnt;
+    volatile AO_t sched_del;
     job_queue_t jqueue;
 
 #ifdef DEBUG
@@ -49,25 +50,27 @@ typedef struct client {
 
 client_t *client_new();
 
-void client_delete( client_t *client );
+void client_schedule_delete( client_t *clnt );
 
-void client_portcheck_finish( client_t *client, portcheck_result_t result );
+void client_delete( client_t *clnt );
 
-void send_id_change( client_t *client );
+void client_portcheck_finish( client_t *clnt, portcheck_result_t result );
 
-void send_server_message( client_t *client, const char *msg, size_t msg_len );
+void send_id_change( client_t *clnt );
 
-void send_server_ident( client_t *client );
+void send_server_message( client_t *clnt, const char *msg, size_t len );
 
-void send_server_list( client_t *client );
+void send_server_ident( client_t *clnt );
 
-void send_search_result( client_t *client, struct search_node *search_tree );
+void send_server_list( client_t *clnt );
 
-void send_found_sources( client_t *client, const unsigned char *hash );
+void send_search_result( client_t *clnt, struct search_node *search_tree );
 
-void send_reject( client_t *client );
+void send_found_sources( client_t *clnt, const unsigned char *hash );
 
-void send_callback_fail( client_t *client );
+void send_reject( client_t *clnt );
+
+void send_callback_fail( client_t *clnt );
 
 void write_search_file( struct evbuffer *buf, const struct search_file *file );
 

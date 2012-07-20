@@ -38,8 +38,14 @@ client_t *client_new()
     return client;
 }
 
+void client_schedule_delete( client_t *clnt )
+{
+    clnt->sched_del = 1;
+}
+
 void client_delete( client_t *clnt )
 {
+    assert(clnt->sched_del);
     ED2KD_LOGDBG("client removed (%s:%d)", clnt->dbg.ip_str, clnt->port);
 
     if( clnt->bev_cli )
@@ -50,8 +56,19 @@ void client_delete( client_t *clnt )
         db_remove_source(clnt);
 
     server_remove_client_jobs(clnt);
+    
+    {
+        job_t *j_tmp, *j = STAILQ_FIRST(&clnt->jqueue);
+        while ( j != NULL ) {
+            j_tmp = STAILQ_NEXT(j, qentry);
+            free(j);
+            j = j_tmp;
+        }
 
+    }
+    
     free(clnt);
+
     AO_fetch_and_sub1(&g_instance.user_count);
 }
 
@@ -379,7 +396,7 @@ void client_portcheck_finish( client_t *client, portcheck_result_t result )
             client->id = get_next_lowid();
             client->port = 0;
         } else {
-            client_delete(client);
+            client_schedule_delete(client);
             return;
         }
     } else {
