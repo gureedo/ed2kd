@@ -6,6 +6,7 @@
 */
 
 #include <stdint.h>
+#include <stddef.h>
 #include "packed_struct.h"
 
 struct client;
@@ -19,8 +20,8 @@ PACKED_STRUCT(
 struct file_source {
     uint32_t ip;
     uint16_t port;
-};
-)
+}
+);
 typedef struct file_source file_source_t;
 
 typedef struct pub_file {

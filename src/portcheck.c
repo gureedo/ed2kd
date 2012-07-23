@@ -1,4 +1,5 @@
 #include "portcheck.h"
+#include <stdlib.h>
 #ifdef WIN32
 #include <ws2tcpip.h>
 #endif

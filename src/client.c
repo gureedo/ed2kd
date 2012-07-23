@@ -23,7 +23,7 @@ get_next_lowid()
         new_id = old_id + 1;
         if ( new_id > 0x1000000 )
             new_id = 0;
-    } while ( AO_fetch_compare_and_swap_release(&g_instance.lowid_counter, old_id, new_id) == old_id );
+    } while ( !AO_compare_and_swap_full(&g_instance.lowid_counter, old_id, new_id) );
 
     return new_id;
 }
@@ -175,6 +175,7 @@ void send_server_ident( client_t *clnt )
 
 void send_server_list( client_t *clnt )
 {
+    (void)clnt;
     // TODO: implement
 }
 

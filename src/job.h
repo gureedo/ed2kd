@@ -1,8 +1,8 @@
 #ifndef JOB_H
 #define JOB_H
 
-#include <sys/queue.h>
 #include <event2/util.h>
+#include "queue.h"
 
 struct client;
 

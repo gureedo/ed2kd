@@ -1,7 +1,10 @@
 #include "config.h"
 #include <string.h>
+#include <stdlib.h>
+
 #include <libconfig.h>
 #include <event2/util.h>
+
 #include "log.h"
 #include "server.h"
 #include "ed2k_proto.h"

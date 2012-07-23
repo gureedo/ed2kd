@@ -6,6 +6,7 @@
 */
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16

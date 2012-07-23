@@ -4,7 +4,6 @@
 #include <event2/bufferevent.h>
 #include <zlib.h>
 #include "client.h"
-#include "ed2kd.h"
 #include "packet_buffer.h"
 #include "portcheck.h"
 #include "ed2k_proto.h"
@@ -105,7 +104,8 @@ process_login_request( struct packet_buffer *pb, client_t *client )
             break;
 
         case TN_EMULE_VERSION: {
-            UINT32 emule_ver;
+            uint32_t emule_ver;
+            (void)emule_ver;
             PB_CHECK(TT_UINT32 == tag_hdr->type);
             PB_READ_UINT32(pb, emule_ver);
             break;
@@ -526,6 +526,8 @@ server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
 
 void *server_job_worker( void *ctx )
 {
+    (void)ctx;
+
     for(;;) {
         client_t *client;
         job_t *job;

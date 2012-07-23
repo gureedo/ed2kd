@@ -47,8 +47,8 @@ typedef struct server_instance {
     struct event_base *evbase;
     const server_config_t *cfg;
     size_t thread_count;
-	volatile AO_t user_count;
-	volatile AO_t file_count;
+    volatile AO_t user_count;
+    volatile AO_t file_count;
     volatile AO_t lowid_counter;
 
     volatile AO_t terminate;
