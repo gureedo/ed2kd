@@ -4,8 +4,7 @@ CONFIG += console
 CONFIG -= app_bundle
 TEMPLATE = app
 
-LIBS += -L/usr/local/lib -lconfig -levent_core -levent_pthreads -lsqlite3 -lz -latomic_ops
-
+LIBS += -lconfig -levent_core -levent_pthreads -lsqlite3 -lz -latomic_ops -lm
 QMAKE_LFLAGS += -fopenmp
 
 CONFIG(debug, debug|release) {

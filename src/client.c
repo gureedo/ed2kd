@@ -19,11 +19,11 @@ get_next_lowid()
     AO_t old_id, new_id;
 
     do {
-        old_id = AO_load_acquire(&g_instance.lowid_counter);
+        old_id = AO_load(&g_instance.lowid_counter);
         new_id = old_id + 1;
         if ( new_id > 0x1000000 )
             new_id = 0;
-    } while ( !AO_compare_and_swap_full(&g_instance.lowid_counter, old_id, new_id) );
+    } while ( !AO_compare_and_swap(&g_instance.lowid_counter, old_id, new_id) );
 
     return new_id;
 }
@@ -107,8 +107,8 @@ void send_server_status( client_t *clnt )
     data.hdr.proto = PROTO_EDONKEY;
     data.hdr.length = sizeof data - sizeof data.hdr;
     data.opcode = OP_SERVERSTATUS;
-    data.user_count = AO_load_acquire(&g_instance.user_count);
-    data.file_count = AO_load_acquire(&g_instance.file_count);
+    data.user_count = AO_load(&g_instance.user_count);
+    data.file_count = AO_load(&g_instance.file_count);
 
     bufferevent_write(clnt->bev_srv, &data, sizeof data);
 }

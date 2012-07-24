@@ -1,4 +1,4 @@
-# ms vs stuff
+# msvc
 ipch
 *.suo
 *.sdf
@@ -11,3 +11,5 @@ lib
 bin
 junk
 doxy
+
+cmake.build
