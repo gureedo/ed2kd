@@ -22,9 +22,8 @@ struct file_source {
     uint16_t port;
 }
 );
-typedef struct file_source file_source_t;
 
-typedef struct pub_file {
+struct pub_file {
     unsigned char hash[16];
     uint16_t name_len;
     char name[MAX_FILENAME_LEN+1];
@@ -36,9 +35,9 @@ typedef struct pub_file {
     uint16_t media_codec_len;
     char media_codec[MAX_MCODEC_LEN+1];
     unsigned complete:1;
-} pub_file_t;
+};
 
-typedef struct search_file {
+struct search_file {
     const unsigned char *hash;
     uint32_t client_id;
     uint16_t client_port;
@@ -56,9 +55,9 @@ typedef struct search_file {
     const char *media_codec;
     uint32_t srcavail;
     uint32_t srccomplete;
-} search_file_t;
+};
 
-typedef enum search_node_type {
+enum search_node_type {
     ST_EMPTY,
     // logical nodes
     ST_AND,
@@ -76,10 +75,10 @@ typedef enum search_node_type {
     ST_SRCCOMLETE,
     ST_MINBITRATE,
     ST_MINLENGTH
-} search_node_type_t;
+};
 
-typedef struct search_node {
-    search_node_type_t type;
+struct search_node {
+    enum search_node_type type;
     struct search_node *parent;
     unsigned left_visited:1;
     unsigned right_visited:1;
@@ -95,15 +94,18 @@ typedef struct search_node {
             struct search_node *right;
         };
     };
-} search_node_t;
+};
 
 int db_open();
+
 int db_close();
 
-int db_add_file( const pub_file_t *file, const struct client *owner );
-int db_remove_source( const struct client *owner );
-int db_search_file( search_node_t *root, struct evbuffer *buf, size_t *count );
-int db_get_sources( const unsigned char *hash, file_source_t *out_sources, uint8_t *size );
+int db_add_file( const struct pub_file *file, const struct client *owner );
 
+int db_remove_source( const struct client *owner );
+
+int db_search_file( struct search_node *root, struct evbuffer *buf, size_t *count );
+
+int db_get_sources( const unsigned char *hash, struct file_source *out_sources, uint8_t *size );
 
 #endif // DB_H

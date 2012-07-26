@@ -27,7 +27,7 @@ int config_load( const char * path )
     static const char srv_ver[] = "server version" ED2KD_VER_STR " (ed2kd)";
     config_t config;
     int ret = 1;
-    server_config_t *server_cfg = (server_config_t *)malloc(sizeof *server_cfg);
+    struct server_config *server_cfg = (struct server_config *)malloc(sizeof *server_cfg);
 
     config_init(&config);
     memset(server_cfg, 0, sizeof *server_cfg);
@@ -128,7 +128,7 @@ int config_load( const char * path )
 
 void config_free()
 {
-    const server_config_t *cfg = g_instance.cfg;
+    const struct server_config *cfg = g_instance.cfg;
     g_instance.cfg = NULL;
     free((void*)cfg);
 }

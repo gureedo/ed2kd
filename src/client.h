@@ -14,12 +14,12 @@ struct evbuffer;
 #define	MAX_FOUND_SOURCES	200
 #define	MAX_FOUND_FILES 	200
 
-typedef enum portcheck_result {
+enum portcheck_result {
     PORTCHECK_FAILED,
     PORTCHECK_SUCCESS
-} portcheck_result_t;
+};
 
-typedef struct client {
+struct client {
     unsigned char hash[16];
     uint32_t ip;
     uint16_t port;
@@ -39,38 +39,38 @@ typedef struct client {
     pthread_mutex_t job_mutex;
     volatile AO_t pending_evcnt;
     volatile AO_t sched_del;
-    job_queue_t jqueue;
+    struct job_queue jqueue;
 
 #ifdef DEBUG
     struct {
         char ip_str[16];
     } dbg;
 #endif
-} client_t;
+};
 
-client_t *client_new();
+struct client *client_new();
 
-void client_schedule_delete( client_t *clnt );
+void client_schedule_delete( struct client *clnt );
 
-void client_delete( client_t *clnt );
+void client_delete( struct client *clnt );
 
-void client_portcheck_finish( client_t *clnt, portcheck_result_t result );
+void client_portcheck_finish( struct client *clnt, enum portcheck_result result );
 
-void send_id_change( client_t *clnt );
+void send_id_change( struct client *clnt );
 
-void send_server_message( client_t *clnt, const char *msg, size_t len );
+void send_server_message( struct client *clnt, const char *msg, size_t len );
 
-void send_server_ident( client_t *clnt );
+void send_server_ident( struct client *clnt );
 
-void send_server_list( client_t *clnt );
+void send_server_list( struct client *clnt );
 
-void send_search_result( client_t *clnt, struct search_node *search_tree );
+void send_search_result( struct client *clnt, struct search_node *search_tree );
 
-void send_found_sources( client_t *clnt, const unsigned char *hash );
+void send_found_sources( struct client *clnt, const unsigned char *hash );
 
-void send_reject( client_t *clnt );
+void send_reject( struct client *clnt );
 
-void send_callback_fail( client_t *clnt );
+void send_callback_fail( struct client *clnt );
 
 void write_search_file( struct evbuffer *buf, const struct search_file *file );
 

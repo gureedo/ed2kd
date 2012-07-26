@@ -21,7 +21,7 @@ struct client;
 #define MAX_UNCOMPRESSED_PACKET_SIZE  300*1024
 
 // variables loaded from config file or initialized at startup
-typedef struct server_config
+struct server_config
 {
     char listen_addr[15];
 	uint32_t listen_addr_inaddr;
@@ -41,11 +41,11 @@ typedef struct server_config
 
     //flags
     unsigned allow_lowid:1;
-} server_config_t;
+};
 
-typedef struct server_instance {
+struct server_instance {
     struct event_base *evbase;
-    const server_config_t *cfg;
+    const struct server_config *cfg;
     size_t thread_count;
     volatile AO_t user_count;
     volatile AO_t file_count;
@@ -54,12 +54,12 @@ typedef struct server_instance {
     volatile AO_t terminate;
     pthread_mutex_t job_mutex;
     pthread_cond_t job_cond;
-    job_queue_t jqueue;
-} server_instance_t;
+    struct job_queue jqueue;
+};
 
-extern server_instance_t g_instance;
+extern struct server_instance g_instance;
 
-void server_add_job( job_t *job );
+void server_add_job( struct job *job );
 
 void *server_job_worker( void *ctx );
 

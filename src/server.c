@@ -12,11 +12,11 @@
 #include "util.h"
 #include "event_callback.h"
 
-void server_add_job( job_t *job )
+void server_add_job( struct job *job )
 {
     if ( job->client ) {
         pthread_mutex_lock(&job->client->job_mutex);
-        if ( !job->client->pending_evcnt ) {
+        if ( job->client->pending_evcnt ) {
             STAILQ_INSERT_TAIL(&job->client->jqueue, job, qentry);
         } else {
             pthread_mutex_lock(&g_instance.job_mutex);
@@ -36,7 +36,7 @@ void server_add_job( job_t *job )
 
 void server_remove_client_jobs( const struct client *clnt )
 {
-    job_t *j, *j_tmp;
+    struct job *j, *j_tmp;
     pthread_mutex_lock(&g_instance.job_mutex);
     STAILQ_FOREACH_SAFE( j, &g_instance.jqueue, qentry, j_tmp ) {
         if ( clnt == j->client ) {
@@ -49,18 +49,18 @@ void server_remove_client_jobs( const struct client *clnt )
 }
 
 static int
-process_login_request( struct packet_buffer *pb, client_t *client )
+process_login_request( struct packet_buffer *pb, struct client *clnt )
 {
     uint32_t tag_count;
 
     // user hash 16b
-    PB_MEMCPY(pb, client->hash, sizeof client->hash);
+    PB_MEMCPY(pb, clnt->hash, sizeof clnt->hash);
 
     // user id 4b
     PB_SEEK(pb, sizeof(uint32_t));
 
     // user port 2b
-    PB_READ_UINT16(pb, client->port);
+    PB_READ_UINT16(pb, clnt->port);
 
     // tag count 4b
     PB_READ_UINT32(pb, tag_count);
@@ -79,15 +79,15 @@ process_login_request( struct packet_buffer *pb, client_t *client )
         switch ( *tag_hdr->name ) {
         case TN_NAME: {
             PB_CHECK(TT_STRING == tag_hdr->type);
-            client->nick_len = MAX_NICK_LEN;
-            PB_READ_STRING(pb, client->nick, client->nick_len);
-            client->nick[client->nick_len] = 0;
+            clnt->nick_len = MAX_NICK_LEN;
+            PB_READ_STRING(pb, clnt->nick, clnt->nick_len);
+            clnt->nick[clnt->nick_len] = 0;
             break;
         }
 
         case TN_PORT:
             PB_CHECK(TT_UINT16 == tag_hdr->type);
-            PB_READ_UINT16(pb, client->port);
+            PB_READ_UINT16(pb, clnt->port);
             break;
 
         case TN_VERSION: {
@@ -100,7 +100,7 @@ process_login_request( struct packet_buffer *pb, client_t *client )
 
         case TN_SERVER_FLAGS:
             PB_CHECK(TT_UINT32 == tag_hdr->type);
-            PB_READ_UINT32(pb, client->tcp_flags);
+            PB_READ_UINT32(pb, clnt->tcp_flags);
             break;
 
         case TN_EMULE_VERSION: {
@@ -118,8 +118,8 @@ process_login_request( struct packet_buffer *pb, client_t *client )
 
     // todo: search already connected with same ip:port
 
-    if ( client_portcheck_start(client) < 0 ) {
-        client_portcheck_finish(client, PORTCHECK_FAILED);
+    if ( client_portcheck_start(clnt) < 0 ) {
+        client_portcheck_finish(clnt, PORTCHECK_FAILED);
         return -1;
     }
 
@@ -130,7 +130,7 @@ malformed:
 }
 
 static int
-process_offer_files( packet_buffer_t *pb, client_t *client )
+process_offer_files( struct packet_buffer *pb, struct client *client )
 {
     size_t i;
     uint32_t count;
@@ -143,7 +143,7 @@ process_offer_files( packet_buffer_t *pb, client_t *client )
     for( i=0; i<count; ++i ) {
         uint32_t tag_count, id;
         uint16_t port;
-        pub_file_t file;
+        struct pub_file file;
 
         memset(&file, 0, sizeof file);
 
@@ -258,7 +258,7 @@ malformed:
 }
 
 static int
-process_search_request( packet_buffer_t *pb, client_t *client )
+process_search_request( struct packet_buffer *pb, struct client *clnt )
 {
     struct search_node *n, root;
     n = &root;
@@ -362,7 +362,7 @@ process_search_request( packet_buffer_t *pb, client_t *client )
         n = n->parent;
     }
 
-    send_search_result(client, &root);
+    send_search_result(clnt, &root);
     return 0;
 
 malformed:
@@ -370,22 +370,22 @@ malformed:
 }
 
 static int
-process_packet( packet_buffer_t *pb, uint8_t opcode, client_t *client )
+process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
 {
-    PB_CHECK( client->portcheck_finished || (OP_LOGINREQUEST==opcode));
+    PB_CHECK( clnt->portcheck_finished || (OP_LOGINREQUEST==opcode));
 
     switch ( opcode ) {
     case OP_LOGINREQUEST:
-        PB_CHECK( process_login_request(pb, client) >= 0 );
+        PB_CHECK( process_login_request(pb, clnt) >= 0 );
         return 0;
 
     case OP_GETSERVERLIST:
-        send_server_ident(client);
-        send_server_list(client);
+        send_server_ident(clnt);
+        send_server_list(clnt);
         return 0;
 
     case OP_SEARCHREQUEST:
-        process_search_request(pb, client);
+        process_search_request(pb, clnt);
         return 0;
 
     case OP_QUERY_MORE_RESULT:
@@ -397,11 +397,11 @@ process_packet( packet_buffer_t *pb, uint8_t opcode, client_t *client )
         return 0;
 
     case OP_GETSOURCES:
-        send_found_sources(client, pb->ptr);
+        send_found_sources(clnt, pb->ptr);
         return 0;
 
     case OP_OFFERFILES:
-        PB_CHECK( process_offer_files(pb, client) >= 0 );
+        PB_CHECK( process_offer_files(pb, clnt) >= 0 );
         return 0;
 
     case OP_CALLBACKREQUEST:
@@ -420,9 +420,9 @@ malformed:
 }
 
 static void
-server_read( client_t *client )
+server_read( struct client *clnt )
 {
-    struct evbuffer *input = bufferevent_get_input(client->bev_srv);
+    struct evbuffer *input = bufferevent_get_input(clnt->bev_srv);
     size_t src_len = evbuffer_get_length(input);
 
     while( src_len > sizeof(struct packet_header) ) {
@@ -434,8 +434,8 @@ server_read( client_t *client )
             (struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
         if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
-            ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
-            client_schedule_delete(client);
+            ED2KD_LOGDBG("unknown packet protocol from %s:%u", clnt->dbg.ip_str, clnt->port);
+            client_schedule_delete(clnt);
             return;
         }
 
@@ -455,21 +455,21 @@ server_read( client_t *client )
             ret = uncompress(unpacked, &unpacked_len, data+1, header->length-1);
             if ( Z_OK == ret ) {
                 PB_INIT(&pb, unpacked, unpacked_len);
-                ret = process_packet(&pb, *data, client);
+                ret = process_packet(&pb, *data, clnt);
             } else {
-                ED2KD_LOGDBG("failed to unpack packet from %s:%u", client->dbg.ip_str, client->port);
+                ED2KD_LOGDBG("failed to unpack packet from %s:%u", clnt->dbg.ip_str, clnt->port);
                 ret = -1;
             }
             free(unpacked);
         } else {
             PB_INIT(&pb, data+1, header->length-1);
-            ret = process_packet(&pb, *data, client);
+            ret = process_packet(&pb, *data, clnt);
         }
 
 
         if (  ret < 0 ) {
-            ED2KD_LOGDBG("server packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
-            client_schedule_delete(client);
+            ED2KD_LOGDBG("server packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
+            client_schedule_delete(clnt);
             return;
         }
 
@@ -479,11 +479,11 @@ server_read( client_t *client )
 }
 
 static void
-server_event( client_t *client, short events )
+server_event( struct client *clnt, short events )
 {
     if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
-        ED2KD_LOGDBG("got EOF or error from %s:%u", client->dbg.ip_str, client->port);
-        client_schedule_delete(client);
+        ED2KD_LOGDBG("got EOF or error from %s:%u", clnt->dbg.ip_str, clnt->port);
+        client_schedule_delete(clnt);
     }
 }
 
@@ -491,7 +491,7 @@ static void
 server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
 {
     struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
-    client_t *client;
+    struct client *clnt;
     struct bufferevent *bev;
 
     assert(sizeof(struct sockaddr_in) == socklen);
@@ -500,25 +500,25 @@ server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
     // todo: limit connections from same ip
     // todo: block banned ips
 
-    client = client_new();
+    clnt = client_new();
 
     bev = bufferevent_socket_new(g_instance.evbase, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
 
-    client->ip = peer_sa->sin_addr.s_addr;
-    client->bev_srv = bev;
+    clnt->ip = peer_sa->sin_addr.s_addr;
+    clnt->bev_srv = bev;
 #ifdef DEBUG
-    evutil_inet_ntop(AF_INET, &(client->ip), client->dbg.ip_str, sizeof client->dbg.ip_str);
-    ED2KD_LOGNFO("client connected (%s)", client->dbg.ip_str);
+    evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof clnt->dbg.ip_str);
+    ED2KD_LOGNFO("client connected (%s)", clnt->dbg.ip_str);
 #endif
 
-    bufferevent_setcb(bev, server_read_cb, NULL, server_event_cb, client);
+    bufferevent_setcb(bev, server_read_cb, NULL, server_event_cb, clnt);
     bufferevent_enable(bev, EV_READ|EV_WRITE);
 
-    send_server_message(client, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
+    send_server_message(clnt, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
 
     if ( !g_instance.cfg->allow_lowid ) {
         static const char msg_highid[] = "WARNING: Only HighID clients!";
-        send_server_message(client, msg_highid, sizeof msg_highid - 1);
+        send_server_message(clnt, msg_highid, sizeof msg_highid - 1);
     }
 
     // todo: set timeout for op_login
@@ -529,8 +529,8 @@ void *server_job_worker( void *ctx )
     (void)ctx;
 
     for(;;) {
-        client_t *client;
-        job_t *job;
+        struct client *clnt;
+        struct job *job;
 
         pthread_mutex_lock(&g_instance.job_mutex);
         while ( !AO_load(&g_instance.terminate) && STAILQ_EMPTY(&g_instance.jqueue) ) {
@@ -545,7 +545,7 @@ void *server_job_worker( void *ctx )
             STAILQ_REMOVE_HEAD(&g_instance.jqueue, qentry);
         }
         
-        client = job->client;
+        clnt = job->client;
 
         pthread_mutex_unlock(&g_instance.job_mutex);
 
@@ -553,49 +553,55 @@ void *server_job_worker( void *ctx )
             switch( job->type ) {
 
             case JOB_SERVER_ACCEPT: {
-                job_server_accept_t *j = (job_server_accept_t *)job;
-                server_accept(j->fd, j->sa, j->socklen);
+                struct job_server_accept *j = (struct job_server_accept*)job;
+                ED2KD_LOGDBG("JOB_SERVER_ACCEPT event");
+                server_accept(j->fd, &j->sa, j->socklen);
                 break;
             }
 
             case JOB_SERVER_EVENT: {
-                job_event_t *j = (job_event_t *)job;
-                client_event(client, j->events);
+                struct job_event *j = (struct job_event*)job;
+                ED2KD_LOGDBG("JOB_SERVER_EVENT event");
+                client_event(clnt, j->events);
                 break;
             }
 
             case JOB_CLIENT_EVENT: {
-                job_event_t *j = (job_event_t *)job;
-                server_event(client, j->events);
+                struct job_event *j = (struct job_event*)job;
+                ED2KD_LOGDBG("JOB_CLIENT_EVENT event");
+                client_event(clnt, j->events);
                 break;
             }
 
             case JOB_SERVER_READ:
-                server_read(client);
+                ED2KD_LOGDBG("JOB_SERVER_READ event");
+                server_read(clnt);
                 break;
 
             case JOB_CLIENT_READ:
-                client_read(client);
+                ED2KD_LOGDBG("JOB_CLIENT_READ event");
+                client_read(clnt);
                 break;
 
             default:
+                assert(0);
                 break;
             }
 
             free(job);
             job = NULL;
 
-            if ( client ) {
-                if ( client->sched_del ) {
-                    client_delete(client);
+            if ( clnt ) {
+                if ( clnt->sched_del ) {
+                    client_delete(clnt);
                 } else {
-                    pthread_mutex_lock(&client->job_mutex);
-                    client->pending_evcnt--;
-                    if ( !STAILQ_EMPTY(&client->jqueue) ) {
-                        job = STAILQ_FIRST(&client->jqueue);
-                        STAILQ_REMOVE_HEAD(&client->jqueue, qentry);
+                    pthread_mutex_lock(&clnt->job_mutex);
+                    clnt->pending_evcnt--;
+                    if ( !STAILQ_EMPTY(&clnt->jqueue) ) {
+                        job = STAILQ_FIRST(&clnt->jqueue);
+                        STAILQ_REMOVE_HEAD(&clnt->jqueue, qentry);
                     }
-                    pthread_mutex_unlock(&client->job_mutex);
+                    pthread_mutex_unlock(&clnt->job_mutex);
                 }
             }
         }

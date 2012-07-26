@@ -131,7 +131,7 @@ int db_close()
     return (SQLITE_OK == sqlite3_close(g_db)) ? 0 : -1;
 }
 
-int db_add_file( const struct pub_file *file, const client_t *owner )
+int db_add_file( const struct pub_file *file, const struct client *owner )
 {
     static const char query1[] =
         "UPDATE files SET name=?,ext=?,size=?,type=?,mlength=?,mbitrate=?,mcodec=? WHERE fid=?";
@@ -207,7 +207,7 @@ failed:
     return -1;
 }
 
-int db_remove_source( const client_t *client )
+int db_remove_source( const struct client *client )
 {
     sqlite3_stmt *stmt;
     const char *tail;
@@ -371,10 +371,10 @@ int db_search_file( struct search_node *snode, struct evbuffer *buf, size_t *cou
     }
     strcat(query, " LIMIT ?");
 
-    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, params.name_len+1, &stmt, &tail) );
+    DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, strlen(query)+1, &stmt, &tail) );
 
     i=1;
-    DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.name_term, strlen(params.name_term)+1, SQLITE_STATIC) );
+    DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.name_term, params.name_len+1, SQLITE_STATIC) );
 
     if ( params.ext_node ) {
         DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.ext_node->str_val, params.ext_node->str_len, SQLITE_STATIC) );
@@ -461,7 +461,7 @@ failed:
     return -1;
 }
 
-int db_get_sources( const unsigned char *hash, file_source_t *sources, uint8_t *count )
+int db_get_sources( const unsigned char *hash, struct file_source *sources, uint8_t *count )
 {
     sqlite3_stmt *stmt;
     const char *tail;

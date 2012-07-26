@@ -26,6 +26,8 @@
 #include "db.h"
 #include "event_callback.h"
 
+struct server_instance g_instance;
+
 // command line options
 static const char *optString = "vhg";
 static const struct option longOpts[] = {
@@ -46,18 +48,12 @@ void display_usage( void )
     puts("Options:");
     puts("--help, -h\tshow this help");
     puts("--version, -v\tprint version");
-    puts("--gen-hash, -G\tgenerate random user hash");
+    puts("--gen-hash, -g\tgenerate random user hash");
 }
-
-server_instance_t g_instance;
 
 int main( int argc, char *argv[] )
 {
     int ret, opt, longIndex = 0;
-#ifdef WIN32
-    WSADATA WSAData;
-#endif
-
     struct event *sigint_event;
     struct sockaddr_in bind_sa;
     int bind_sa_len;
@@ -102,9 +98,13 @@ int main( int argc, char *argv[] )
     }
 
 #ifdef WIN32
-    if ( 0 != WSAStartup(0x0201, &WSAData) ) {
-        ED2KD_LOGWRN("WSAStartup failed!");
-        return EXIT_FAILURE;
+    {
+        WSADATA WSAData;
+        if ( 0 != WSAStartup(0x0201, &WSAData) ) {
+            ED2KD_LOGWRN("WSAStartup failed!");
+            return EXIT_FAILURE;
+        }
+
     }
 #endif
 

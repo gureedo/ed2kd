@@ -28,9 +28,9 @@ get_next_lowid()
     return new_id;
 }
 
-client_t *client_new()
+struct client *client_new()
 {
-    client_t *client = (client_t*)calloc(sizeof *client, 1);
+    struct client *client = (struct client*)calloc(sizeof *client, 1);
     AO_fetch_and_add1(&g_instance.user_count);
     pthread_mutex_init(&client->job_mutex, NULL);
     STAILQ_INIT(&client->jqueue);
@@ -38,12 +38,12 @@ client_t *client_new()
     return client;
 }
 
-void client_schedule_delete( client_t *clnt )
+void client_schedule_delete( struct client *clnt )
 {
     clnt->sched_del = 1;
 }
 
-void client_delete( client_t *clnt )
+void client_delete( struct client *clnt )
 {
     assert(clnt->sched_del);
     ED2KD_LOGDBG("client removed (%s:%d)", clnt->dbg.ip_str, clnt->port);
@@ -58,7 +58,7 @@ void client_delete( client_t *clnt )
     server_remove_client_jobs(clnt);
     
     {
-        job_t *j_tmp, *j = STAILQ_FIRST(&clnt->jqueue);
+        struct job *j_tmp, *j = STAILQ_FIRST(&clnt->jqueue);
         while ( j != NULL ) {
             j_tmp = STAILQ_NEXT(j, qentry);
             free(j);
@@ -72,9 +72,9 @@ void client_delete( client_t *clnt )
     AO_fetch_and_sub1(&g_instance.user_count);
 }
 
-void send_id_change( client_t *clnt )
+void send_id_change( struct client *clnt )
 {
-    packet_id_change_t data;
+    struct packet_id_change data;
 
     data.hdr.proto = PROTO_EDONKEY;
     data.hdr.length = sizeof data - sizeof data.hdr;
@@ -85,9 +85,9 @@ void send_id_change( client_t *clnt )
     bufferevent_write(clnt->bev_srv, &data, sizeof data);
 }
 
-void send_server_message( client_t *clnt, const char *msg, size_t len )
+void send_server_message( struct client *clnt, const char *msg, size_t len )
 {
-    packet_server_message_t data;
+    struct packet_server_message data;
 
     assert( len <= UINT16_MAX );
 
@@ -100,9 +100,9 @@ void send_server_message( client_t *clnt, const char *msg, size_t len )
     bufferevent_write(clnt->bev_srv, msg, len);
 }
 
-void send_server_status( client_t *clnt )
+void send_server_status( struct client *clnt )
 {
-    packet_server_status_t data;
+    struct packet_server_status data;
 
     data.hdr.proto = PROTO_EDONKEY;
     data.hdr.length = sizeof data - sizeof data.hdr;
@@ -113,9 +113,9 @@ void send_server_status( client_t *clnt )
     bufferevent_write(clnt->bev_srv, &data, sizeof data);
 }
 
-void send_server_ident( client_t *clnt )
+void send_server_ident( struct client *clnt )
 {
-    packet_server_ident_t data;
+    struct packet_server_ident data;
 
     data.hdr.proto = PROTO_EDONKEY;
     data.hdr.length = sizeof data - sizeof data.hdr;
@@ -130,10 +130,10 @@ void send_server_ident( client_t *clnt )
         evbuffer_add(buf, &data, sizeof data);
 
         if ( g_instance.cfg->server_name_len > 0 ) {
-            tag_header_t th;
-            tag_strval_t *tv;
+            struct tag_header th;
+            struct tag_strval *tv;
             size_t data_len = sizeof *tv + g_instance.cfg->server_name_len - 1;
-            tv = (tag_strval_t *)alloca(data_len);
+            tv = (struct tag_strval*)alloca(data_len);
 
             th.type = TT_STRING;
             th.name_len = 1;
@@ -146,10 +146,10 @@ void send_server_ident( client_t *clnt )
         }
 
         if ( g_instance.cfg->server_descr_len > 0 ) {
-            tag_header_t th;
-            tag_strval_t *tv;
+            struct tag_header th;
+            struct tag_strval *tv;
             size_t data_len = sizeof *tv + g_instance.cfg->server_descr_len - 1;
-            tv = (tag_strval_t *)alloca(data_len);
+            tv = (struct tag_strval*)alloca(data_len);
 
             th.type = TT_STRING;
             th.name_len = 1;
@@ -162,7 +162,7 @@ void send_server_ident( client_t *clnt )
         }
 
         {
-            packet_header_t *ph = (packet_header_t *)evbuffer_pullup(buf, sizeof *ph);
+            struct packet_header *ph = (struct packet_header*)evbuffer_pullup(buf, sizeof *ph);
             ph->length = evbuffer_get_length(buf) - sizeof *ph;
         }
 
@@ -173,17 +173,17 @@ void send_server_ident( client_t *clnt )
     }
 }
 
-void send_server_list( client_t *clnt )
+void send_server_list( struct client *clnt )
 {
     (void)clnt;
     // TODO: implement
 }
 
-void send_search_result( client_t *client, search_node_t *search_tree )
+void send_search_result( struct client *clnt, struct search_node *search_tree )
 {
     size_t count = MAX_SEARCH_FILES;
     struct evbuffer *buf = evbuffer_new();
-    packet_search_result_t data;
+    struct packet_search_result data;
 
     data.hdr.proto = PROTO_EDONKEY;
     //data.length = 0;
@@ -192,11 +192,11 @@ void send_search_result( client_t *client, search_node_t *search_tree )
     evbuffer_add(buf, &data, sizeof data);
 
     if ( db_search_file(search_tree, buf, &count) >= 0 ) {
-        packet_search_result_t *ph = (packet_search_result_t*)evbuffer_pullup(buf, sizeof *ph);
-        ph->hdr.length = evbuffer_get_length(buf) - sizeof *ph;
+        struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof *ph);
+        ph->hdr.length = evbuffer_get_length(buf) - sizeof ph->hdr;
         ph->files_count = count;
 
-        bufferevent_write_buffer(client->bev_srv, buf);
+        bufferevent_write_buffer(clnt->bev_srv, buf);
     }
 
     evbuffer_free(buf);
@@ -204,7 +204,7 @@ void send_search_result( client_t *client, search_node_t *search_tree )
 
 void write_search_file( struct evbuffer *buf, const struct search_file *file )
 {
-    search_file_entry_t sfe;
+    struct search_file_entry sfe;
 
     memcpy(sfe.hash, file->hash, sizeof sfe.hash);
     sfe.id = file->client_id;
@@ -213,10 +213,10 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     evbuffer_add(buf, &sfe, sizeof sfe);
 
     {
-        tag_header_t th;
-        tag_strval_t *tv;
+        struct tag_header th;
+        struct tag_strval *tv;
         size_t data_len = sizeof *tv + file->name_len - 1;
-        tv = (tag_strval_t *)alloca(data_len);
+        tv = (struct tag_strval*)alloca(data_len);
 
         th.type = TT_STRING;
         th.name_len = 1;
@@ -229,7 +229,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 
     {
-        tag_header_t th;
+        struct tag_header th;
         th.type = TT_UINT64;
         th.name_len = 1;
         *th.name = TN_FILESIZE;
@@ -248,10 +248,10 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }*/
 
     if ( file->ext_len ) {
-        tag_header_t th;
-        tag_strval_t *tv;
+        struct tag_header th;
+        struct tag_strval *tv;
         size_t data_len = sizeof *tv + file->ext_len - 1;
-        tv = (tag_strval_t *)alloca(data_len);
+        tv = (struct tag_strval *)alloca(data_len);
 
         th.type = TT_STRING;
         th.name_len = 1;
@@ -264,7 +264,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 
     {
-        tag_header_t th;
+        struct tag_header th;
         th.type = TT_UINT32;
         th.name_len = 1;
         *th.name = TN_SOURCES;
@@ -274,7 +274,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 
     {
-        tag_header_t th;
+        struct tag_header th;
         th.type = TT_UINT32;
         th.name_len = 1;
         *th.name = TN_COMPLETE_SOURCES;
@@ -285,7 +285,7 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
 
     if ( file->rated_count > 0 ) {
         uint16_t data;
-        tag_header_t th;
+        struct tag_header th;
         th.type = TT_UINT16;
         th.name_len = 1;
         *th.name = TN_FILERATING;
@@ -300,11 +300,11 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 
     if ( file->media_length ) {
-        tag_header_t *th;
+        struct tag_header *th;
         uint16_t name_len = sizeof(TNS_MEDIA_LENGTH)-1;
 
         size_t th_len = sizeof *th + name_len - 1;
-        th = (tag_header_t *)alloca(th_len);
+        th = (struct tag_header *)alloca(th_len);
         th->type = TT_UINT32;
         th->name_len = name_len;
         memcpy(th->name, TNS_MEDIA_LENGTH, name_len);
@@ -315,9 +315,9 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
 
     if ( file->media_bitrate ) {
         uint16_t name_len = sizeof(TNS_MEDIA_BITRATE)-1;
-        tag_header_t *th;
+        struct tag_header *th;
         size_t th_len = sizeof *th + name_len - 1;
-        th = (tag_header_t *)alloca(th_len);
+        th = (struct tag_header *)alloca(th_len);
         th->type = TT_UINT32;
         th->name_len = name_len;
         memcpy(th->name, TNS_MEDIA_BITRATE, name_len);
@@ -327,13 +327,13 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 
     if ( file->media_codec_len ) {
-        tag_header_t *th;
-        tag_strval_t *tv;
+        struct tag_header *th;
+        struct tag_strval *tv;
         uint16_t name_len = sizeof(TNS_MEDIA_CODEC)-1;
         size_t th_len = sizeof *th + name_len - 1;
         size_t tv_len = sizeof *tv + file->media_codec_len - 1;
-        th = (tag_header_t*)alloca(th_len);
-        tv = (tag_strval_t*)alloca(tv_len);
+        th = (struct tag_header*)alloca(th_len);
+        tv = (struct tag_strval*)alloca(tv_len);
 
         th->type = TT_UINT32;
         th->name_len = name_len;
@@ -347,11 +347,11 @@ void write_search_file( struct evbuffer *buf, const struct search_file *file )
     }
 }
 
-void send_found_sources( client_t *client, const unsigned char *hash )
+void send_found_sources( struct client *clnt, const unsigned char *hash )
 {
     uint8_t src_count = MAX_FOUND_SOURCES;
-    file_source_t sources[MAX_FOUND_SOURCES];
-    packet_found_sources_t data;
+    struct file_source sources[MAX_FOUND_SOURCES];
+    struct packet_found_sources data;
 
     db_get_sources(hash, sources, &src_count);
 
@@ -360,49 +360,49 @@ void send_found_sources( client_t *client, const unsigned char *hash )
     data.hdr.length = sizeof data - sizeof data.hdr + src_count*sizeof(sources[0]);
     data.opcode = OP_FOUNDSOURCES;
     data.count = src_count;
-    bufferevent_write(client->bev_srv, &data, sizeof data);
-    bufferevent_write(client->bev_srv, sources, src_count*sizeof(sources[0]));
+    bufferevent_write(clnt->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, sources, src_count*sizeof(sources[0]));
 }
 
-void send_reject( client_t *client )
+void send_reject( struct client *clnt )
 {
     static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_REJECT };
-    bufferevent_write(client->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, &data, sizeof data);
 }
 
-void send_callback_fail( client_t *client )
+void send_callback_fail( struct client *clnt )
 {
     static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_CALLBACK_FAIL };
-    bufferevent_write(client->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, &data, sizeof data);
 }
 
-void client_portcheck_finish( client_t *client, portcheck_result_t result )
+void client_portcheck_finish( struct client *clnt, enum portcheck_result result )
 {
-    if ( client->bev_cli ) {
-        bufferevent_free(client->bev_cli);
-        client->bev_cli = NULL;
+    if ( clnt->bev_cli ) {
+        bufferevent_free(clnt->bev_cli);
+        clnt->bev_cli = NULL;
     }
-    client->portcheck_finished = 1;
-    client->lowid = (PORTCHECK_SUCCESS != result);
+    clnt->portcheck_finished = 1;
+    clnt->lowid = (PORTCHECK_SUCCESS != result);
 
-    if ( client->lowid ) {
+    if ( clnt->lowid ) {
         static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
-        ED2KD_LOGDBG("port check failed (%s:%d)", client->dbg.ip_str, client->port);
-        send_server_message(client, msg_lowid, sizeof msg_lowid - 1);
+        ED2KD_LOGDBG("port check failed (%s:%d)", clnt->dbg.ip_str, clnt->port);
+        send_server_message(clnt, msg_lowid, sizeof msg_lowid - 1);
         // todo:
     }
 
-    if ( client->lowid ) {
+    if ( clnt->lowid ) {
         if ( g_instance.cfg->allow_lowid ) {
-            client->id = get_next_lowid();
-            client->port = 0;
+            clnt->id = get_next_lowid();
+            clnt->port = 0;
         } else {
-            client_schedule_delete(client);
+            client_schedule_delete(clnt);
             return;
         }
     } else {
-        client->id = client->ip;
+        clnt->id = clnt->ip;
     }
 
-    send_id_change(client);
+    send_id_change(clnt);
 }

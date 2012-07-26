@@ -15,7 +15,7 @@
 #include "event_callback.h"
 
 static void
-send_hello( client_t *client )
+send_hello( struct client *client )
 {
     static const char name[] = {'e','d','2','k','d'};
     struct packet_hello data;
@@ -49,9 +49,9 @@ send_hello( client_t *client )
 }
 
 static int
-process_hello_answer( packet_buffer_t *pb, client_t *client )
+process_hello_answer( struct packet_buffer *pb, struct client *clnt )
 {
-    PB_CHECK( memcmp(client->hash, pb->ptr, HASH_SIZE) == 0 );
+    PB_CHECK( memcmp(clnt->hash, pb->ptr, HASH_SIZE) == 0 );
     PB_SEEK(pb, HASH_SIZE);
 
     return 0;
@@ -61,12 +61,12 @@ malformed:
 }
 
 static int
-process_packet( packet_buffer_t *pb, uint8_t opcode, client_t *client )
+process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
 {
     switch ( opcode ) {
     case OP_HELLOANSWER:
-        PB_CHECK( process_hello_answer(pb, client) == 0 );
-        client_portcheck_finish(client, PORTCHECK_SUCCESS);
+        PB_CHECK( process_hello_answer(pb, clnt) == 0 );
+        client_portcheck_finish(clnt, PORTCHECK_SUCCESS);
         return 0;
 
     default:
@@ -78,10 +78,15 @@ malformed:
     return -1;
 }
 
-void client_read( client_t *client )
+void client_read( struct client *clnt )
 {
-    struct evbuffer *input = bufferevent_get_input(client->bev_cli);
-    size_t src_len = evbuffer_get_length(input);
+    struct evbuffer *input;
+    size_t src_len;
+
+    assert(clnt);
+
+    input = bufferevent_get_input(clnt->bev_cli);
+    src_len = evbuffer_get_length(input);
 
     while( src_len > sizeof(struct packet_header) ) {
         unsigned char *data;
@@ -92,8 +97,8 @@ void client_read( client_t *client )
             (struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
 
         if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
-            ED2KD_LOGDBG("unknown packet protocol from %s:%u", client->dbg.ip_str, client->port);
-            client_portcheck_finish(client, PORTCHECK_FAILED);
+            ED2KD_LOGDBG("unknown packet protocol from %s:%u", clnt->dbg.ip_str, clnt->port);
+            client_portcheck_finish(clnt, PORTCHECK_FAILED);
             return;
         }
 
@@ -113,24 +118,24 @@ void client_read( client_t *client )
             ret = uncompress(unpacked, &unpacked_len, data+1, header->length-1);
             if ( Z_OK == ret ) {
                 PB_INIT(&pb, unpacked, unpacked_len);
-                ret = process_packet(&pb, *data, client);
+                ret = process_packet(&pb, *data, clnt);
             } else {
-                ED2KD_LOGDBG("failed to unpack packet from %s:%u", client->dbg.ip_str, client->port);
+                ED2KD_LOGDBG("failed to unpack packet from %s:%u", clnt->dbg.ip_str, clnt->port);
                 ret = -1;
             }
             free(unpacked);
         } else {
             PB_INIT(&pb, data+1, header->length-1);
-            ret = process_packet(&pb, *data, client);
+            ret = process_packet(&pb, *data, clnt);
         }
 
         if (  ret < 0 ) {
-            ED2KD_LOGDBG("client packet parsing error (%s:%u)", client->dbg.ip_str, client->port);
-            client_portcheck_finish(client, PORTCHECK_FAILED);
+            ED2KD_LOGDBG("client packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
+            client_portcheck_finish(clnt, PORTCHECK_FAILED);
             return;
         }
 
-        if ( client->portcheck_finished )
+        if ( clnt->portcheck_finished )
             return;
 
         evbuffer_drain(input, packet_len);
@@ -138,16 +143,18 @@ void client_read( client_t *client )
     }
 }
 
-void client_event( client_t *client, short events )
+void client_event( struct client *clnt, short events )
 {
-    if ( !client->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
-        client_portcheck_finish(client, PORTCHECK_FAILED);
+    assert(clnt);
+    if ( !clnt->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
+        client_portcheck_finish(clnt, PORTCHECK_FAILED);
     } else if ( events & BEV_EVENT_CONNECTED ) {
-        send_hello(client);
+        bufferevent_enable(clnt->bev_cli, EV_READ|EV_WRITE);
+        send_hello(clnt);
     }
 }
 
-int client_portcheck_start( client_t *client )
+int client_portcheck_start( struct client *clnt )
 {
     struct sockaddr_in client_sa;
     struct event_base *base;
@@ -155,21 +162,22 @@ int client_portcheck_start( client_t *client )
 
     memset(&client_sa, 0, sizeof client_sa);
     client_sa.sin_family = AF_INET;
-    client_sa.sin_addr.s_addr = client->ip;
-    client_sa.sin_port = htons(client->port);
+    client_sa.sin_addr.s_addr = clnt->ip;
+    client_sa.sin_port = htons(clnt->port);
 
-    base = bufferevent_get_base(client->bev_srv);
-    bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS);
-    bufferevent_setcb(bev, client_read_cb, NULL, client_event_cb, client);
-    bufferevent_enable(bev, EV_READ|EV_WRITE);
+    base = bufferevent_get_base(clnt->bev_srv);
+    bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
+    bufferevent_setcb(bev, client_read_cb, NULL, client_event_cb, clnt);
+    
+    clnt->bev_cli = bev;
 
     if ( bufferevent_socket_connect(bev, (struct sockaddr*)&client_sa, sizeof client_sa) < 0 ) {
+        clnt->bev_cli = NULL;
         bufferevent_free(bev);
         return -1;
     }
 
     // todo: timeout for handshake
-    client->bev_cli = bev;
 
     return 0;
 }

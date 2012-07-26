@@ -19,11 +19,11 @@ void signal_cb( evutil_socket_t fd, short what, void *ctx )
 
 void server_read_cb( struct bufferevent *bev, void *ctx )
 {
-    job_t *job = (job_t *)calloc(sizeof *job, 1);
+    struct job *job = (struct job *)calloc(1, sizeof *job);
     (void)bev;
 
     job->type = JOB_SERVER_READ;
-    job->client = (client_t*)ctx;
+    job->client = (struct client*)ctx;
 
     server_add_job(job);
 }
@@ -31,28 +31,28 @@ void server_read_cb( struct bufferevent *bev, void *ctx )
 void server_event_cb( struct bufferevent *bev, short events, void *ctx )
 {
 
-    job_event_t *job = (job_event_t *)calloc(sizeof *job, 1);
+    struct job_event *job = (struct job_event*)calloc(1, sizeof *job);
     (void)bev;
 
     job->hdr.type = JOB_SERVER_EVENT;
-    job->hdr.client = (client_t*)ctx;
+    job->hdr.client = (struct client*)ctx;
     job->events = events;
 
-    server_add_job((job_t*)job);
+    server_add_job((struct job*)job);
 }
 
 void server_accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *sa, int socklen, void *ctx )
 {
-    job_server_accept_t *job = (job_server_accept_t*)calloc(sizeof *job, 1);
+    struct job_server_accept *job = (struct job_server_accept*)calloc(1, sizeof *job);
     (void)listener;
     (void)ctx;
 
     job->hdr.type = JOB_SERVER_ACCEPT;
     job->fd =fd;
-    job->sa = sa;
+    memcpy(&job->sa, sa, socklen);
     job->socklen = socklen;
 
-    server_add_job((job_t*)job);
+    server_add_job((struct job*)job);
 }
 
 void server_accept_error_cb( struct evconnlistener *listener, void *ctx )
@@ -69,23 +69,23 @@ void server_accept_error_cb( struct evconnlistener *listener, void *ctx )
 
 void client_read_cb( struct bufferevent *bev, void *ctx )
 {
-    job_t *job = (job_t *)calloc(sizeof *job, 1);
+    struct job *job = (struct job *)calloc(1, sizeof *job);
     (void)bev;
 
     job->type = JOB_CLIENT_READ;
-    job->client = (client_t*)ctx;
+    job->client = (struct client*)ctx;
 
-    server_add_job((job_t*)job);
+    server_add_job((struct job*)job);
 }
 
 void client_event_cb( struct bufferevent *bev, short events, void *ctx )
 {
-    job_event_t *job = (job_event_t *)calloc(sizeof *job, 1);
+    struct job_event *job = (struct job_event*)calloc(1, sizeof *job);
     (void)bev;
 
     job->hdr.type = JOB_CLIENT_EVENT;
-    job->hdr.client = (client_t*)ctx;
+    job->hdr.client = (struct client*)ctx;
     job->events = events;
 
-    server_add_job((job_t*)job);
+    server_add_job((struct job*)job);
 }
