@@ -13,10 +13,17 @@
 #include "../../src/ed2k_proto.h"
 #include "../../src/packet_buffer.h"
 
-#define MAX_UNCOMPRESSED_PACKET_SIZE 500000
+#define MAX_UNCOMPRESSED_PACKET_SIZE 300*1024
+#define NICK_LEN 5
 #define CLIENT_COUNT 10
 
+#define TCP_FLAGS (CLI_CAP_UNICODE|CLI_CAP_LARGEFILES|CLI_CAP_ZLIB)
+
 struct eb_client {
+    int idx;
+    uint32_t id;
+    unsigned char hash[HASH_SIZE];
+    unsigned char nick[NICK_LEN];
     struct bufferevent *bev;
 };
 
@@ -25,16 +32,125 @@ struct eb_instance {
     struct eb_client *clnts;
 } g_instance;
 
-void send_login( struct eb_client *clnt )
+PACKED_STRUCT(
+struct packet_login {
+    struct packet_header hdr;
+    uint8_t opcode;
+    unsigned char hash[HASH_SIZE];
+    uint32_t id;
+    uint16_t port;
+    uint32_t tag_count;
+    struct {
+        struct tag_header hdr;
+        uint16_t len;
+        unsigned char val[NICK_LEN];
+    } tag_nick;
+    struct {
+        struct tag_header hdr;
+        uint16_t val;
+    } tag_port;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_version;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_tcp_flags;
+}
+);
+
+void client_free( struct eb_client *clnt )
+{
+    bufferevent_free(clnt->bev);
+}
+
+start_benchmark( struct eb_client *clnt )
 {
 
+}
+
+void send_login_request( struct eb_client *clnt )
+{
+    struct packet_login data;
+
+    data.hdr.proto = PROTO_EDONKEY;
+    data.hdr.length = sizeof data - sizeof data.hdr;
+    data.opcode = OP_LOGINREQUEST;
+
+    // hash already initialized
+    data.id = 0;
+    data.port = 0; // port listening no implemented
+    data.tag_count = 4;    
+    
+    // nick
+    data.tag_nick.hdr.type = TT_STRING;
+    data.tag_nick.hdr.name_len = 1;
+    *data.tag_nick.hdr.name = TN_NAME;
+    data.tag_nick.len = NICK_LEN;
+    memcpy(data.tag_nick.val, clnt->nick, NICK_LEN);
+
+    // port
+    data.tag_port.hdr.type = TT_UINT16;
+    data.tag_port.hdr.name_len = 1;
+    *data.tag_port.hdr.name = TN_NAME;
+    data.tag_port.val = 0; // // port listening no yet implemented
+
+    // version
+    data.tag_version.hdr.type = TT_UINT32;
+    data.tag_version.hdr.name_len = 1;
+    *data.tag_version.hdr.name = TN_VERSION;
+    data.tag_version.val = EDONKEYVERSION;
+    
+    // tcp flags
+    data.tag_tcp_flags.hdr.type = TT_UINT32;
+    data.tag_tcp_flags.hdr.name_len = 1;
+    *data.tag_tcp_flags.hdr.name = TN_SERVER_FLAGS;
+    data.tag_tcp_flags.val = TCP_FLAGS;
+
+    bufferevent_write(clnt->bev, &data, sizeof data);
+}
+
+int process_id_change( struct packet_buffer *pb, struct eb_client *clnt )
+{
+    uint32_t tcp_flags;
+
+    PB_READ_UINT32(pb, clnt->id);
+    PB_READ_UINT32(pb, tcp_flags);
+
+    return 0;
+
+malformed:
+    printf("%d# malformed OP_IDCHANGE\n", clnt->idx);
+    return -1;
 }
 
 int process_packet( struct packet_buffer *pb, uint8_t opcode, struct eb_client *clnt )
 {
     switch ( opcode ) {
     case OP_IDCHANGE:
-        //PB_CHECK( process_id_change(pb, clnt) == 0 );
+        PB_CHECK( process_id_change(pb, clnt) == 0 );
+        start_benchmark(clnt);
+        return 0;
+
+    case OP_SERVERMESSAGE:
+        return 0;
+
+    case OP_SERVERSTATUS:
+        return 0;
+    
+    case OP_SERVERIDENT:
+        return 0;
+
+    case OP_FOUNDSOURCES:
+
+    case OP_SEARCHRESULT:
+        return 0;
+    
+    case OP_DISCONNECT:
+        return 0;
+
+    case OP_REJECT:
         return 0;
 
     default:
@@ -106,7 +222,7 @@ void event_cb( struct bufferevent *bev, short events, void *ctx )
     if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
         printf("%d# got error/EOF!\n", (int)ctx);
     } else if ( events & BEV_EVENT_CONNECTED ) {
-        send_login(&g_instance.clnts[(int)ctx]);
+        send_login_request(&g_instance.clnts[(int)ctx]);
     }
 }
 
@@ -156,17 +272,21 @@ int main( int argc, char *argv[] )
 
     for ( i=0; i<CLIENT_COUNT; ++i ) {
         struct bufferevent *bev;
+        struct eb_client *clnt;
 
         bev = bufferevent_socket_new(g_instance.evbase, -1, BEV_OPT_CLOSE_ON_FREE);
-        g_instance.clnts[i].bev = bev;
+        
         bufferevent_setcb(bev, read_cb, NULL, event_cb, (void*)i);
         bufferevent_enable(bev, EV_READ|EV_WRITE);
 
         if ( bufferevent_socket_connect(bev, (struct sockaddr*)&server_sa, sizeof server_sa) < 0 ) {
             bufferevent_free(bev);
             printf("%d# failed to connect\n", i);
-            g_instance.clnts[i].bev = NULL;
         }
+
+        clnt = &g_instance.clnts[i];
+        clnt->idx = i;
+        evutil_secure_rng_get_bytes(clnt->hash, sizeof clnt->hash);
     }
     
     ret = event_base_dispatch(g_instance.evbase);
@@ -177,9 +297,13 @@ int main( int argc, char *argv[] )
         printf("no active events in main loop\n");
     }
 
+    for( i=0; i<CLIENT_COUNT; ++i ) {
+        client_free(&g_instance.clnts[i]);
+    }
+    free(g_instance.clnts);
+    
     event_free(sigint_event);
     event_base_free(g_instance.evbase);
-    free(g_instance.clnts);
 
     return EXIT_SUCCESS;
 }
