@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <signal.h>
+#include <getopt.h>
 #ifdef WIN32
 #include <winsock2.h>
 #endif
@@ -13,6 +14,8 @@
 #include "../../src/ed2k_proto.h"
 #include "../../src/packet_buffer.h"
 
+#define ED2K_BENCH_VER "0.01"
+
 #define MAX_UNCOMPRESSED_PACKET_SIZE 300*1024
 #define NICK_LEN 5
 #define CLIENT_COUNT 10
@@ -25,11 +28,16 @@ struct eb_client {
     unsigned char hash[HASH_SIZE];
     unsigned char nick[NICK_LEN];
     struct bufferevent *bev;
+    int repeat_cnt;
 };
 
 struct eb_instance {
     struct event_base *evbase;
-    struct eb_client *clnts;
+
+    int repeat_cnt;
+    int publish_cnt;
+    int search_cnt;
+    int source_cnt;
 } g_instance;
 
 PACKED_STRUCT(
@@ -59,6 +67,36 @@ struct packet_login {
     } tag_tcp_flags;
 }
 );
+
+// command line options
+const char *optString = "vhr:p:s:S:";
+const struct option longOpts[] = {
+    { "version", no_argument, NULL, 'v'},
+    { "help", no_argument, NULL, 'h' },
+    { "repeat", required_argument, NULL, 'r'},
+    { "publish", required_argument, NULL, 'p'},
+    { "search", required_argument, NULL, 's'},
+    { "source", required_argument, NULL, 'S'},
+    { NULL, no_argument, NULL, 0 }
+};
+
+void display_version( void )
+{
+    puts("ed2kd benchmark (eb) v" ED2K_BENCH_VER);
+    puts("Build on: "__DATE__ " " __TIME__);
+}
+
+void display_usage( void )
+{
+    puts("Options:");
+    puts("--help, -h\tshow this help");
+    puts("--version, -v\tprint version");
+    puts("--repeat, -r\t<count>\trepeat task <count> times");
+    puts("--publish, -p\t<count>\tpublish <count> random files");
+    puts("--search, -s\t<count>\tsearch random query <count> times");
+    puts("--source, -S\t<count>\tsearch random file sources <count> times");
+}
+
 
 void client_free( struct eb_client *clnt )
 {
@@ -164,6 +202,7 @@ malformed:
 
 void read_cb( struct bufferevent *bev, void *ctx )
 {
+    struct eb_client *clnt = (struct eb_client *)ctx;
     struct evbuffer *input = bufferevent_get_input(bev);
     size_t src_len = evbuffer_get_length(input);
 
@@ -172,43 +211,43 @@ void read_cb( struct bufferevent *bev, void *ctx )
         struct packet_buffer pb;
         size_t packet_len;
         int ret;
-        const struct packet_header *header =
-            (struct packet_header*)evbuffer_pullup(input, sizeof(struct packet_header));
+        const struct packet_header *ph =
+            (struct packet_header*)evbuffer_pullup(input, sizeof *ph);
 
-        if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
-            printf("%d# unknown packet protocol %c\n", (int)ctx, header->proto);
+        if  ( (PROTO_PACKED != ph->proto) && (PROTO_EDONKEY != ph->proto) ) {
+            printf("%d# unknown packet protocol %c\n", clnt->idx, ph->proto);
             // close and remove client
         }
 
         // wait for full length packet
-        packet_len = header->length + sizeof(struct packet_header);
+        packet_len = ph->length + sizeof *ph;
         if ( packet_len > src_len )
             return;
 
         data = evbuffer_pullup(input, packet_len);
-        header = (struct packet_header*)data;
-        data += sizeof(struct packet_header);
+        ph = (struct packet_header*)data;
+        data += sizeof *ph;
 
-        if ( PROTO_PACKED == header->proto ) {
+        if ( PROTO_PACKED == ph->proto ) {
             unsigned long unpacked_len = MAX_UNCOMPRESSED_PACKET_SIZE;
             unsigned char *unpacked = (unsigned char*)malloc(unpacked_len);
 
-            ret = uncompress(unpacked, &unpacked_len, data+1, header->length-1);
+            ret = uncompress(unpacked, &unpacked_len, data+1, ph->length-1);
             if ( Z_OK == ret ) {
                 PB_INIT(&pb, unpacked, unpacked_len);
-                ret = process_packet(&pb, *data, &g_instance.clnts[(int)ctx]);
+                ret = process_packet(&pb, *data, clnt);
             } else {
-                printf("%d# failed to unpack packet\n", (int)ctx);
+                printf("%d# failed to unpack packet\n", clnt->idx);
                 ret = -1;
             }
             free(unpacked);
         } else {
-            PB_INIT(&pb, data+1, header->length-1);
-            ret = process_packet(&pb, *data, &g_instance.clnts[(int)ctx]);
+            PB_INIT(&pb, data+1, ph->length-1);
+            ret = process_packet(&pb, *data, clnt);
         }
 
         if (  ret < 0 ) {
-            printf("packet parsing error (opcode:%c)", (int)ctx, data+1);
+            printf("%d# packet parsing error (opcode:%c)\n", clnt->idx, data+1);
             // close and remove client
         }
 
@@ -219,10 +258,12 @@ void read_cb( struct bufferevent *bev, void *ctx )
 
 void event_cb( struct bufferevent *bev, short events, void *ctx )
 {
+    struct eb_client *clnt = (struct eb_client*)ctx;
+
     if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
-        printf("%d# got error/EOF!\n", (int)ctx);
+        printf("%d# got error/EOF!\n", clnt->idx);
     } else if ( events & BEV_EVENT_CONNECTED ) {
-        send_login_request(&g_instance.clnts[(int)ctx]);
+        send_login_request(clnt);
     }
 }
 
@@ -232,12 +273,35 @@ void signal_cb( evutil_socket_t fd, short what, void *ctx )
     event_base_loopexit(g_instance.evbase, NULL);
 }
 
+struct eb_client *start_instance( int idx, struct sockaddr *sa, int sa_len )
+{
+    struct bufferevent *bev;
+    struct eb_client *clnt;
+
+    bev = bufferevent_socket_new(g_instance.evbase, -1, BEV_OPT_CLOSE_ON_FREE);
+    clnt = (struct eb_client*)calloc(1, sizeof *clnt);
+    clnt->idx = idx;
+    clnt->bev = bev;
+
+    bufferevent_setcb(bev, read_cb, NULL, event_cb, (void*)clnt);
+    bufferevent_enable(bev, EV_READ|EV_WRITE);
+
+    if ( bufferevent_socket_connect(bev, sa, sa_len) < 0 ) {
+        printf("%d# failed to connect\n", clnt->idx);
+        bufferevent_free(bev);
+        free(clnt);
+        return NULL;
+    }
+
+    return clnt;
+}
+
 int main( int argc, char *argv[] )
 {
 #ifdef WIN32
     WSADATA WSAData;
 #endif
-    int ret,i;
+    int ret, i, opt, longIndex = 0;
     struct event *sigint_event;
     struct sockaddr_in server_sa;
 
@@ -253,40 +317,57 @@ int main( int argc, char *argv[] )
         return EXIT_FAILURE;
     }
 
+    // parse command line arguments
+    opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
+    while( opt != -1 ) {
+        switch( opt ) {
+        case 'v':
+            display_version();
+            return EXIT_SUCCESS;
+
+        case 'h':
+            display_usage();
+            return EXIT_SUCCESS;
+
+        case 'r':
+            g_instance.repeat_cnt = atoi(optarg);
+            break;
+
+        case 'p':
+            g_instance.publish_cnt = atoi(optarg);
+            break;
+
+        case 's':
+            g_instance.search_cnt = atoi(optarg);
+            break; 
+
+        case 'S':
+            g_instance.source_cnt = atoi(optarg);
+            break;
+
+        default:
+            return EXIT_FAILURE;
+        }
+        opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
+    }
+
     g_instance.evbase = event_base_new();
     if ( NULL == g_instance.evbase ) {
         printf("failed to create main event loop");
         return EXIT_FAILURE;
     }
 
+    // setup signals
+    sigint_event = evsignal_new(g_instance.evbase, SIGINT, signal_cb, NULL);
+    evsignal_add(sigint_event, NULL);
+
     memset(&server_sa, 0, sizeof server_sa);
     server_sa.sin_family = AF_INET;
     server_sa.sin_addr.s_addr = inet_addr("78.29.10.18");
     server_sa.sin_port = htons(4662);
     
-    // setup signals
-    sigint_event = evsignal_new(g_instance.evbase, SIGINT, signal_cb, NULL);
-    evsignal_add(sigint_event, NULL);
-
-    g_instance.clnts = (struct eb_client*)calloc(CLIENT_COUNT, sizeof(g_instance.clnts));
-
     for ( i=0; i<CLIENT_COUNT; ++i ) {
-        struct bufferevent *bev;
-        struct eb_client *clnt;
-
-        bev = bufferevent_socket_new(g_instance.evbase, -1, BEV_OPT_CLOSE_ON_FREE);
-        
-        bufferevent_setcb(bev, read_cb, NULL, event_cb, (void*)i);
-        bufferevent_enable(bev, EV_READ|EV_WRITE);
-
-        if ( bufferevent_socket_connect(bev, (struct sockaddr*)&server_sa, sizeof server_sa) < 0 ) {
-            bufferevent_free(bev);
-            printf("%d# failed to connect\n", i);
-        }
-
-        clnt = &g_instance.clnts[i];
-        clnt->idx = i;
-        evutil_secure_rng_get_bytes(clnt->hash, sizeof clnt->hash);
+        start_instance(i, (struct sockaddr*)&server_sa, sizeof server_sa);
     }
     
     ret = event_base_dispatch(g_instance.evbase);
@@ -297,11 +378,6 @@ int main( int argc, char *argv[] )
         printf("no active events in main loop\n");
     }
 
-    for( i=0; i<CLIENT_COUNT; ++i ) {
-        client_free(&g_instance.clnts[i]);
-    }
-    free(g_instance.clnts);
-    
     event_free(sigint_event);
     event_base_free(g_instance.evbase);
 

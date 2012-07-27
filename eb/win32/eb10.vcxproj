@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\win32\getopt_long.c" />
     <ClCompile Include="..\src\main.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
