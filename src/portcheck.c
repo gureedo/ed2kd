@@ -171,9 +171,10 @@ int client_portcheck_start( struct client *clnt )
     
     clnt->bev_cli = bev;
 
-    if ( bufferevent_socket_connect(bev, (struct sockaddr*)&client_sa, sizeof client_sa) < 0 ) {
+    if ( bufferevent_socket_connect(bev, (struct sockaddr*)&client_sa, sizeof(client_sa)) < 0 ) {
         clnt->bev_cli = NULL;
         bufferevent_free(bev);
+        client_portcheck_finish(clnt, PORTCHECK_FAILED);
         return -1;
     }
 

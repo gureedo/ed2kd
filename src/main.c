@@ -33,22 +33,26 @@ static const char *optString = "vhg";
 static const struct option longOpts[] = {
     { "version", no_argument, NULL, 'v'},
     { "help", no_argument, NULL, 'h' },
-    { "gen-hash", no_argument, NULL, 'g' },
+    { "genhash", no_argument, NULL, 'g' },
     { NULL, no_argument, NULL, 0 }
 };
 
 void display_version( void )
 {
-    puts("ed2kd v" ED2KD_VER_STR);
-    puts("Build on: "__DATE__ " " __TIME__);
+    puts(
+        "ed2kd v" ED2KD_VER_STR "\n"
+        "Build on: "__DATE__ " " __TIME__
+    );
 }
 
 void display_usage( void )
 {
-    puts("Options:");
-    puts("--help, -h\tshow this help");
-    puts("--version, -v\tprint version");
-    puts("--gen-hash, -g\tgenerate random user hash");
+    puts(
+        "Options:\n"
+        "--help, -h\tshow this help\n"
+        "--version, -v\tprint version\n"
+        "--genhash, -g\tgenerate random user hash"
+    );
 }
 
 int main( int argc, char *argv[] )

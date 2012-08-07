@@ -180,8 +180,7 @@ struct packet_hello {
 );
 
 PACKED_STRUCT(
-struct tag_header
-{
+struct tag_header {
     uint8_t type;
     uint16_t name_len;
     unsigned char name[1];
@@ -189,8 +188,7 @@ struct tag_header
 );
 
 PACKED_STRUCT(
-struct tag_strval
-{
+struct tag_strval {
     uint16_t len;
     unsigned char str[1];
 }
@@ -236,8 +234,7 @@ enum tag_type {
     TT_STR16
 };
 
-enum tag_name
-{
+enum tag_name {
     // OP_LOGINREQUEST
     TN_NAME                     = 0x01,
     TN_PORT                     = 0x0F,
@@ -265,8 +262,7 @@ enum tag_name
 #define	TNS_MEDIA_BITRATE	"bitrate"
 #define	TNS_MEDIA_CODEC		"codec"
 
-enum file_type
-{
+enum file_type {
     FT_ANY              = 0,
     FT_AUDIO			= 1,
     FT_VIDEO			= 2,
@@ -288,8 +284,7 @@ enum file_type
 #define	FTS_CDIMAGE		    "Iso"
 #define FTS_EMULECOLLECTION	"EmuleCollection"
 
-enum search_operator
-{
+enum search_operator {
     SO_AND            = 0x0000, // uint16
     SO_OR             = 0x0100, // uint16
     SO_NOT            = 0x0200, // uint16

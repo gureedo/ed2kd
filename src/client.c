@@ -388,7 +388,7 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
     if ( clnt->lowid ) {
         static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
         ED2KD_LOGDBG("port check failed (%s:%d)", clnt->dbg.ip_str, clnt->port);
-        send_server_message(clnt, msg_lowid, sizeof msg_lowid - 1);
+        send_server_message(clnt, msg_lowid, sizeof(msg_lowid) - 1);
         // todo:
     }
 

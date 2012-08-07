@@ -41,10 +41,9 @@ void server_remove_client_jobs( const struct client *clnt )
     STAILQ_FOREACH_SAFE( j, &g_instance.jqueue, qentry, j_tmp ) {
         if ( clnt == j->client ) {
             STAILQ_REMOVE_AFTER(&g_instance.jqueue, j, qentry);
+            free(j);
         }
-        free(j);
     }
-    // todo: remove
     pthread_mutex_unlock(&g_instance.job_mutex);
 }
 
@@ -118,10 +117,7 @@ process_login_request( struct packet_buffer *pb, struct client *clnt )
 
     // todo: search already connected with same ip:port
 
-    if ( client_portcheck_start(clnt) < 0 ) {
-        client_portcheck_finish(clnt, PORTCHECK_FAILED);
-        return -1;
-    }
+    client_portcheck_start(clnt);
 
     return 0;
 
@@ -554,32 +550,32 @@ void *server_job_worker( void *ctx )
 
             case JOB_SERVER_ACCEPT: {
                 struct job_server_accept *j = (struct job_server_accept*)job;
-                ED2KD_LOGDBG("JOB_SERVER_ACCEPT event");
+                //ED2KD_LOGDBG("JOB_SERVER_ACCEPT event");
                 server_accept(j->fd, &j->sa, j->socklen);
                 break;
             }
 
             case JOB_SERVER_EVENT: {
                 struct job_event *j = (struct job_event*)job;
-                ED2KD_LOGDBG("JOB_SERVER_EVENT event");
-                client_event(clnt, j->events);
-                break;
-            }
-
-            case JOB_CLIENT_EVENT: {
-                struct job_event *j = (struct job_event*)job;
-                ED2KD_LOGDBG("JOB_CLIENT_EVENT event");
-                client_event(clnt, j->events);
+                //ED2KD_LOGDBG("JOB_SERVER_EVENT event");
+                server_event(clnt, j->events);
                 break;
             }
 
             case JOB_SERVER_READ:
-                ED2KD_LOGDBG("JOB_SERVER_READ event");
+                //ED2KD_LOGDBG("JOB_SERVER_READ event");
                 server_read(clnt);
                 break;
 
+            case JOB_CLIENT_EVENT: {
+                struct job_event *j = (struct job_event*)job;
+                //ED2KD_LOGDBG("JOB_CLIENT_EVENT event");
+                client_event(clnt, j->events);
+                break;
+            }
+
             case JOB_CLIENT_READ:
-                ED2KD_LOGDBG("JOB_CLIENT_READ event");
+                //ED2KD_LOGDBG("JOB_CLIENT_READ event");
                 client_read(clnt);
                 break;
 
