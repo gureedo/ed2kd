@@ -126,7 +126,7 @@ malformed:
 }
 
 static int
-process_offer_files( struct packet_buffer *pb, struct client *client )
+process_offer_files( struct packet_buffer *pb, struct client *clnt )
 {
     size_t i;
     uint32_t count;
@@ -237,14 +237,14 @@ process_offer_files( struct packet_buffer *pb, struct client *client )
             }
         }
 
-        if ( db_add_file( &file, client ) < 0 ) {
+        if ( db_add_file( &file, clnt ) < 0 ) {
             // todo: something gone wrong
-        } else {
-            ED2KD_LOGDBG("published file(name:'%s',size:%u)", file.name, file.size);
         }
     }
 
-    client->file_count += count;
+    ED2KD_LOGDBG("client %u: published %u files", clnt->id, count);
+
+    clnt->file_count += count;
     AO_fetch_and_add(&g_instance.file_count, count);
 
     return 0;
@@ -385,11 +385,11 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
         return 0;
 
     case OP_QUERY_MORE_RESULT:
-        // todo: may be send op_reject?
+        send_reject(clnt);
         return 0;
 
     case OP_DISCONNECT:
-        // todo: remove client
+        client_schedule_delete(clnt);
         return 0;
 
     case OP_GETSOURCES:
@@ -421,7 +421,7 @@ server_read( struct client *clnt )
     struct evbuffer *input = bufferevent_get_input(clnt->bev_srv);
     size_t src_len = evbuffer_get_length(input);
 
-    while( src_len > sizeof(struct packet_header) ) {
+    while( !clnt->sched_del && src_len > sizeof(struct packet_header) ) {
         unsigned char *data;
         struct packet_buffer pb;
         size_t packet_len;
@@ -504,7 +504,7 @@ server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
     clnt->bev_srv = bev;
 #ifdef DEBUG
     evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof clnt->dbg.ip_str);
-    ED2KD_LOGNFO("client connected (%s)", clnt->dbg.ip_str);
+    ED2KD_LOGDBG("client connected (%s)", clnt->dbg.ip_str);
 #endif
 
     bufferevent_setcb(bev, server_read_cb, NULL, server_event_cb, clnt);
@@ -567,16 +567,16 @@ void *server_job_worker( void *ctx )
                 server_read(clnt);
                 break;
 
-            case JOB_CLIENT_EVENT: {
+            case JOB_PORTCHECK_EVENT: {
                 struct job_event *j = (struct job_event*)job;
-                //ED2KD_LOGDBG("JOB_CLIENT_EVENT event");
-                client_event(clnt, j->events);
+                //ED2KD_LOGDBG("JOB_PORTCHECK_EVENT event");
+                portcheck_event(clnt, j->events);
                 break;
             }
 
-            case JOB_CLIENT_READ:
-                //ED2KD_LOGDBG("JOB_CLIENT_READ event");
-                client_read(clnt);
+            case JOB_PORTCHECK_READ:
+                //ED2KD_LOGDBG("JOB_PORTCHECK_READ event");
+                portcheck_read(clnt);
                 break;
 
             default:

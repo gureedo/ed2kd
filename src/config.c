@@ -21,6 +21,7 @@
 #define CFG_SERVER_NAME             "server_name"
 #define CFG_SERVER_DESCR            "server_descr"
 #define CFG_ALLOW_LOWID             "allow_lowid"
+#define CFG_PORTCHECK_TIMEOUT       "portcheck_timeout"
 
 int config_load( const char * path )
 {
@@ -104,6 +105,14 @@ int config_load( const char * path )
             server_cfg->allow_lowid = (int_val != 0);
         } else {
             ED2KD_LOGERR("config: " CFG_ALLOW_LOWID " missing");
+            ret = -1;
+        }
+
+        if ( config_setting_lookup_int(root, CFG_PORTCHECK_TIMEOUT, &int_val) ) {
+            server_cfg->portcheck_timeout.tv_sec = int_val / 1000;
+            server_cfg->portcheck_timeout.tv_sec = (int_val % 1000) * 1000;
+        }  else {
+            ED2KD_LOGERR("config: " CFG_PORTCHECK_TIMEOUT " missing");
             ret = -1;
         }
 

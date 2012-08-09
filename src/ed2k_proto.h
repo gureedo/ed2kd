@@ -8,12 +8,8 @@
 #include <stdint.h>
 #include "packed_struct.h"
 
-// potocol version
-enum
-{
-    EDONKEYVERSION = 0x3c
-};
-
+#define MAX_LOWID 0x1000000
+#define EDONKEYVERSION 0x3c
 #define HASH_SIZE 16
 
 // server TCP flags

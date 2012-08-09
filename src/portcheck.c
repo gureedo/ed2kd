@@ -3,10 +3,12 @@
 #ifdef WIN32
 #include <ws2tcpip.h>
 #endif
+
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <zlib.h>
+
 #include "server.h"
 #include "client.h"
 #include "log.h"
@@ -78,7 +80,7 @@ malformed:
     return -1;
 }
 
-void client_read( struct client *clnt )
+void portcheck_read( struct client *clnt )
 {
     struct evbuffer *input;
     size_t src_len;
@@ -88,7 +90,7 @@ void client_read( struct client *clnt )
     input = bufferevent_get_input(clnt->bev_cli);
     src_len = evbuffer_get_length(input);
 
-    while( src_len > sizeof(struct packet_header) ) {
+    while( !clnt->sched_del && src_len > sizeof(struct packet_header) ) {
         unsigned char *data;
         struct packet_buffer pb;
         size_t packet_len;
@@ -143,7 +145,15 @@ void client_read( struct client *clnt )
     }
 }
 
-void client_event( struct client *clnt, short events )
+void portcheck_timeout( struct client *clnt )
+{
+    ED2KD_LOGDBG("port check timeout for %u", clnt->id);
+    if ( !clnt->portcheck_finished ) {
+        client_portcheck_finish(clnt, PORTCHECK_FAILED);
+    }
+}
+
+void portcheck_event( struct client *clnt, short events )
 {
     assert(clnt);
     if ( !clnt->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
@@ -152,33 +162,4 @@ void client_event( struct client *clnt, short events )
         bufferevent_enable(clnt->bev_cli, EV_READ|EV_WRITE);
         send_hello(clnt);
     }
-}
-
-int client_portcheck_start( struct client *clnt )
-{
-    struct sockaddr_in client_sa;
-    struct event_base *base;
-    struct bufferevent *bev;
-
-    memset(&client_sa, 0, sizeof client_sa);
-    client_sa.sin_family = AF_INET;
-    client_sa.sin_addr.s_addr = clnt->ip;
-    client_sa.sin_port = htons(clnt->port);
-
-    base = bufferevent_get_base(clnt->bev_srv);
-    bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
-    bufferevent_setcb(bev, client_read_cb, NULL, client_event_cb, clnt);
-    
-    clnt->bev_cli = bev;
-
-    if ( bufferevent_socket_connect(bev, (struct sockaddr*)&client_sa, sizeof(client_sa)) < 0 ) {
-        clnt->bev_cli = NULL;
-        bufferevent_free(bev);
-        client_portcheck_finish(clnt, PORTCHECK_FAILED);
-        return -1;
-    }
-
-    // todo: timeout for handshake
-
-    return 0;
 }

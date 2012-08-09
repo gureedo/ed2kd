@@ -15,3 +15,6 @@ welcome_message = "test messaage";
 
 // allow lowid clients, required
 allow_lowid = 1;
+
+// port check timeout (milliseconds)
+portcheck_timeout = 2000;

@@ -153,6 +153,7 @@
     <ClInclude Include="..\src\ed2k_proto.h" />
     <ClInclude Include="..\src\db.h" />
     <ClInclude Include="..\src\event_callback.h" />
+    <ClInclude Include="..\src\hashtable.h" />
     <ClInclude Include="..\src\job.h" />
     <ClInclude Include="..\src\log.h" />
     <ClInclude Include="..\src\packed_struct.h" />

@@ -67,23 +67,33 @@ void server_accept_error_cb( struct evconnlistener *listener, void *ctx )
     event_base_loopexit(g_instance.evbase, NULL);
 }
 
-void client_read_cb( struct bufferevent *bev, void *ctx )
+void portcheck_read_cb( struct bufferevent *bev, void *ctx )
 {
     struct job *job = (struct job *)calloc(1, sizeof *job);
     (void)bev;
 
-    job->type = JOB_CLIENT_READ;
+    job->type = JOB_PORTCHECK_READ;
     job->client = (struct client*)ctx;
 
     server_add_job((struct job*)job);
 }
 
-void client_event_cb( struct bufferevent *bev, short events, void *ctx )
+void portcheck_timeout_cb( evutil_socket_t fd, short events, void *ctx )
+{
+    struct job *job = (struct job*)calloc(1, sizeof *job);
+
+    job->type = JOB_PORTCHECK_TIMEOUT;
+    job->client = (struct client*)ctx;
+
+    server_add_job(job);
+}
+
+void portcheck_event_cb( struct bufferevent *bev, short events, void *ctx )
 {
     struct job_event *job = (struct job_event*)calloc(1, sizeof *job);
     (void)bev;
 
-    job->hdr.type = JOB_CLIENT_EVENT;
+    job->hdr.type = JOB_PORTCHECK_EVENT;
     job->hdr.client = (struct client*)ctx;
     job->events = events;
 

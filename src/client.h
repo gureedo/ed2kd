@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef CLIENT_H
 #define CLIENT_H
 
@@ -13,6 +15,7 @@ struct evbuffer;
 #define MAX_NICK_LEN		255
 #define	MAX_FOUND_SOURCES	200
 #define	MAX_FOUND_FILES 	200
+#define PORTCHECK_TIMEOUT   5 // ms
 
 enum portcheck_result {
     PORTCHECK_FAILED,
@@ -29,12 +32,12 @@ struct client {
     uint32_t tcp_flags;
     uint32_t file_count;
 
-    // flags
     unsigned portcheck_finished:1;
     unsigned lowid:1;
 
     struct bufferevent *bev_srv;
     struct bufferevent *bev_cli;
+    struct event *evtimer_portcheck;
 
     pthread_mutex_t job_mutex;
     volatile AO_t pending_evcnt;
@@ -53,6 +56,8 @@ struct client *client_new();
 void client_schedule_delete( struct client *clnt );
 
 void client_delete( struct client *clnt );
+
+void client_portcheck_start( struct client *client );
 
 void client_portcheck_finish( struct client *clnt, enum portcheck_result result );
 

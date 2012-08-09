@@ -4,11 +4,14 @@
 #ifdef __GNUC__
 #include <alloca.h>
 #endif
+
+#include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
+
 #include "server.h"
-#include "config.h"
 #include "ed2k_proto.h"
+#include "event_callback.h"
 #include "version.h"
 #include "log.h"
 #include "db.h"
@@ -21,7 +24,7 @@ get_next_lowid()
     do {
         old_id = AO_load(&g_instance.lowid_counter);
         new_id = old_id + 1;
-        if ( new_id > 0x1000000 )
+        if ( new_id > MAX_LOWID )
             new_id = 0;
     } while ( !AO_compare_and_swap(&g_instance.lowid_counter, old_id, new_id) );
 
@@ -30,7 +33,7 @@ get_next_lowid()
 
 struct client *client_new()
 {
-    struct client *client = (struct client*)calloc(sizeof *client, 1);
+    struct client *client = (struct client*)calloc(1, sizeof(*client));
     AO_fetch_and_add1(&g_instance.user_count);
     pthread_mutex_init(&client->job_mutex, NULL);
     STAILQ_INIT(&client->jqueue);
@@ -77,12 +80,12 @@ void send_id_change( struct client *clnt )
     struct packet_id_change data;
 
     data.hdr.proto = PROTO_EDONKEY;
-    data.hdr.length = sizeof data - sizeof data.hdr;
+    data.hdr.length = sizeof(data) - sizeof(data.hdr);
     data.opcode = OP_IDCHANGE;
     data.user_id = clnt->id;
     data.tcp_flags = g_instance.cfg->srv_tcp_flags;
 
-    bufferevent_write(clnt->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, &data, sizeof(data));
 }
 
 void send_server_message( struct client *clnt, const char *msg, size_t len )
@@ -92,12 +95,12 @@ void send_server_message( struct client *clnt, const char *msg, size_t len )
     assert( len <= UINT16_MAX );
 
     data.hdr.proto = PROTO_EDONKEY;
-    data.hdr.length = sizeof data - sizeof data.hdr + len;
+    data.hdr.length = sizeof(data) - sizeof(data.hdr) + (uint16_t)len;
     data.opcode = OP_SERVERMESSAGE;
     data.msg_len = (uint16_t)len;
 
-    bufferevent_write(clnt->bev_srv, &data, sizeof data);
-    bufferevent_write(clnt->bev_srv, msg, len);
+    bufferevent_write(clnt->bev_srv, &data, sizeof(data));
+    bufferevent_write(clnt->bev_srv, msg, (uint16_t)len);
 }
 
 void send_server_status( struct client *clnt )
@@ -105,12 +108,12 @@ void send_server_status( struct client *clnt )
     struct packet_server_status data;
 
     data.hdr.proto = PROTO_EDONKEY;
-    data.hdr.length = sizeof data - sizeof data.hdr;
+    data.hdr.length = sizeof(data) - sizeof(data.hdr);
     data.opcode = OP_SERVERSTATUS;
     data.user_count = AO_load(&g_instance.user_count);
     data.file_count = AO_load(&g_instance.file_count);
 
-    bufferevent_write(clnt->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, &data, sizeof(data));
 }
 
 void send_server_ident( struct client *clnt )
@@ -189,11 +192,11 @@ void send_search_result( struct client *clnt, struct search_node *search_tree )
     //data.length = 0;
     data.opcode = OP_SEARCHRESULT;
     //data.files_count = 0;
-    evbuffer_add(buf, &data, sizeof data);
+    evbuffer_add(buf, &data, sizeof(data));
 
     if ( db_search_file(search_tree, buf, &count) >= 0 ) {
-        struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof *ph);
-        ph->hdr.length = evbuffer_get_length(buf) - sizeof ph->hdr;
+        struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof(*ph));
+        ph->hdr.length = evbuffer_get_length(buf) - sizeof(ph->hdr);
         ph->files_count = count;
 
         bufferevent_write_buffer(clnt->bev_srv, buf);
@@ -356,8 +359,8 @@ void send_found_sources( struct client *clnt, const unsigned char *hash )
     db_get_sources(hash, sources, &src_count);
 
     data.hdr.proto = PROTO_EDONKEY;
-    memcpy(data.hash, hash, sizeof data.hash);
-    data.hdr.length = sizeof data - sizeof data.hdr + src_count*sizeof(sources[0]);
+    memcpy(data.hash, hash, sizeof(data.hash));
+    data.hdr.length = sizeof(data) - sizeof(data.hdr) + src_count*sizeof(sources[0]);
     data.opcode = OP_FOUNDSOURCES;
     data.count = src_count;
     bufferevent_write(clnt->bev_srv, &data, sizeof data);
@@ -367,13 +370,40 @@ void send_found_sources( struct client *clnt, const unsigned char *hash )
 void send_reject( struct client *clnt )
 {
     static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_REJECT };
-    bufferevent_write(clnt->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, &data, sizeof(data));
 }
 
 void send_callback_fail( struct client *clnt )
 {
     static const char data[] = { PROTO_EDONKEY, 1, 0, 0, 0, OP_CALLBACK_FAIL };
-    bufferevent_write(clnt->bev_srv, &data, sizeof data);
+    bufferevent_write(clnt->bev_srv, &data, sizeof(data));
+}
+
+void client_portcheck_start( struct client *clnt )
+{
+    struct sockaddr_in client_sa;
+    struct event_base *base;
+    struct bufferevent *bev;
+
+    memset(&client_sa, 0, sizeof(client_sa));
+    client_sa.sin_family = AF_INET;
+    client_sa.sin_addr.s_addr = clnt->ip;
+    client_sa.sin_port = htons(clnt->port);
+
+    base = bufferevent_get_base(clnt->bev_srv);
+    bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
+    bufferevent_setcb(bev, portcheck_read_cb, NULL, portcheck_event_cb, clnt);
+
+    clnt->bev_cli = bev;
+
+    if ( bufferevent_socket_connect(bev, (struct sockaddr*)&client_sa, sizeof(client_sa)) < 0 ) {
+        clnt->bev_cli = NULL;
+        bufferevent_free(bev);
+        client_portcheck_finish(clnt, PORTCHECK_FAILED);
+    } else {
+        clnt->evtimer_portcheck = evtimer_new(g_instance.evbase, portcheck_timeout_cb, clnt);
+        evtimer_add(clnt->evtimer_portcheck, &g_instance.cfg->portcheck_timeout);
+    }
 }
 
 void client_portcheck_finish( struct client *clnt, enum portcheck_result result )
@@ -382,6 +412,10 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
         bufferevent_free(clnt->bev_cli);
         clnt->bev_cli = NULL;
     }
+    if ( clnt->evtimer_portcheck ) {
+        event_free(clnt->evtimer_portcheck);
+        clnt->evtimer_portcheck = NULL;
+    }
     clnt->portcheck_finished = 1;
     clnt->lowid = (PORTCHECK_SUCCESS != result);
 
@@ -389,7 +423,6 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
         static const char msg_lowid[] = "WARNING : You have a lowid. Please review your network config and/or your settings.";
         ED2KD_LOGDBG("port check failed (%s:%d)", clnt->dbg.ip_str, clnt->port);
         send_server_message(clnt, msg_lowid, sizeof(msg_lowid) - 1);
-        // todo:
     }
 
     if ( clnt->lowid ) {
