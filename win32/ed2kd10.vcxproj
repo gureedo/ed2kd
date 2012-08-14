@@ -142,6 +142,7 @@
     <ClCompile Include="..\src\event_callback.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\main.c" />
+    <ClCompile Include="..\src\packet.c" />
     <ClCompile Include="..\src\portcheck.c" />
     <ClCompile Include="..\src\server.c" />
     <ClCompile Include="..\src\util.c" />
@@ -153,13 +154,13 @@
     <ClInclude Include="..\src\ed2k_proto.h" />
     <ClInclude Include="..\src\db.h" />
     <ClInclude Include="..\src\event_callback.h" />
-    <ClInclude Include="..\src\hashtable.h" />
     <ClInclude Include="..\src\job.h" />
     <ClInclude Include="..\src\log.h" />
     <ClInclude Include="..\src\packed_struct.h" />
-    <ClInclude Include="..\src\packet_buffer.h" />
+    <ClInclude Include="..\src\packet.h" />
     <ClInclude Include="..\src\portcheck.h" />
     <ClInclude Include="..\src\server.h" />
+    <ClInclude Include="..\src\uthash.h" />
     <ClInclude Include="..\src\util.h" />
     <ClInclude Include="..\src\version.h" />
     <ClInclude Include="..\src\win32\getopt.h" />

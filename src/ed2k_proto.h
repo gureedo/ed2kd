@@ -82,6 +82,13 @@ enum packet_opcode {
 };
 
 PACKED_STRUCT(
+struct file_source {
+    uint32_t ip;
+    uint16_t port;
+}
+);
+
+PACKED_STRUCT(
 struct packet_header {
     uint8_t proto;
     uint32_t length;

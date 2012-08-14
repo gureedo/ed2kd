@@ -12,12 +12,12 @@
 #include "server.h"
 #include "client.h"
 #include "log.h"
-#include "packet_buffer.h"
+#include "packet.h"
 #include "ed2k_proto.h"
 #include "event_callback.h"
 
 static void
-send_hello( struct client *client )
+send_hello( struct client *clnt )
 {
     static const char name[] = {'e','d','2','k','d'};
     struct packet_hello data;
@@ -26,12 +26,12 @@ send_hello( struct client *client )
     socklen_t sa_len;
 
     // get local ip addr
-    fd = bufferevent_getfd(client->bev_cli);
-    sa_len = sizeof sa;
+    fd = bufferevent_getfd(clnt->bev_pc);
+    sa_len = sizeof(sa);
     getsockname(fd, (struct sockaddr*)&sa, &sa_len);
 
     data.hdr.proto = PROTO_EDONKEY;
-    data.hdr.length = sizeof data - sizeof(struct packet_header);
+    data.hdr.length = sizeof(data) - sizeof(data.hdr);
     data.opcode = OP_HELLO;
     data.hash_size = 16;
     memcpy(data.hash, g_instance.cfg->hash, sizeof data.hash);
@@ -40,14 +40,14 @@ send_hello( struct client *client )
     data.tag_count = 2;
     data.tag_name.type = TT_STR5 | 0x80;
     data.tag_name.name = TN_NAME;
-    memcpy(data.tag_name.value, name, sizeof data.tag_name.value);
+    memcpy(data.tag_name.value, name, sizeof(data.tag_name.value));
     data.tag_version.type = TT_UINT8 | 0x80;
     data.tag_version.name = TN_VERSION;
     data.tag_version.value = EDONKEYVERSION;
     data.ip = 0;
     data.port = 0;
 
-    bufferevent_write(client->bev_cli, &data, sizeof data);
+    bufferevent_write(clnt->bev_pc, &data, sizeof data);
 }
 
 static int
@@ -85,9 +85,10 @@ void portcheck_read( struct client *clnt )
     struct evbuffer *input;
     size_t src_len;
 
-    assert(clnt);
+    if ( clnt->portcheck_finished )
+        return;
 
-    input = bufferevent_get_input(clnt->bev_cli);
+    input = bufferevent_get_input(clnt->bev_pc);
     src_len = evbuffer_get_length(input);
 
     while( !clnt->sched_del && src_len > sizeof(struct packet_header) ) {
@@ -147,19 +148,22 @@ void portcheck_read( struct client *clnt )
 
 void portcheck_timeout( struct client *clnt )
 {
+    if ( clnt->portcheck_finished )
+        return;
+
     ED2KD_LOGDBG("port check timeout for %u", clnt->id);
-    if ( !clnt->portcheck_finished ) {
-        client_portcheck_finish(clnt, PORTCHECK_FAILED);
-    }
+    client_portcheck_finish(clnt, PORTCHECK_FAILED);
 }
 
 void portcheck_event( struct client *clnt, short events )
 {
-    assert(clnt);
-    if ( !clnt->portcheck_finished && (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) ) {
+    if ( clnt->portcheck_finished )
+        return;
+
+    if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
         client_portcheck_finish(clnt, PORTCHECK_FAILED);
     } else if ( events & BEV_EVENT_CONNECTED ) {
-        bufferevent_enable(clnt->bev_cli, EV_READ|EV_WRITE);
+        bufferevent_enable(clnt->bev_pc, EV_READ|EV_WRITE);
         send_hello(clnt);
     }
 }

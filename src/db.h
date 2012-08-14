@@ -11,19 +11,13 @@
 #include <stddef.h>
 #include "packed_struct.h"
 
-struct client;
 struct evbuffer;
+struct client;
+struct file_source;
 
 #define MAX_FILENAME_LEN    255
 #define MAX_MCODEC_LEN      64
 #define MAX_FILEEXT_LEN     16
-
-PACKED_STRUCT(
-struct file_source {
-    uint32_t ip;
-    uint16_t port;
-}
-);
 
 struct pub_file {
     unsigned char hash[16];
@@ -37,26 +31,6 @@ struct pub_file {
     uint16_t media_codec_len;
     char media_codec[MAX_MCODEC_LEN+1];
     unsigned complete:1;
-};
-
-struct search_file {
-    const unsigned char *hash;
-    uint32_t client_id;
-    uint16_t client_port;
-    uint16_t name_len;
-    const char *name;
-    uint64_t size;
-    uint32_t type;
-    uint32_t rating;
-    uint32_t rated_count;
-    uint16_t ext_len;
-    const char *ext;
-    uint32_t media_length;
-    uint32_t media_bitrate;
-    uint16_t media_codec_len;
-    const char *media_codec;
-    uint32_t srcavail;
-    uint32_t srccomplete;
 };
 
 enum search_node_type {

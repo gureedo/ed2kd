@@ -3,10 +3,11 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <zlib.h>
-#include "client.h"
-#include "packet_buffer.h"
-#include "portcheck.h"
+
 #include "ed2k_proto.h"
+#include "packet.h"
+#include "client.h"
+#include "portcheck.h"
 #include "db.h"
 #include "log.h"
 #include "util.h"
@@ -47,8 +48,8 @@ void server_remove_client_jobs( const struct client *clnt )
     pthread_mutex_unlock(&g_instance.job_mutex);
 }
 
-static int
-process_login_request( struct packet_buffer *pb, struct client *clnt )
+static
+int process_login_request( struct packet_buffer *pb, struct client *clnt )
 {
     uint32_t tag_count;
 
@@ -125,8 +126,8 @@ malformed:
     return -1;
 }
 
-static int
-process_offer_files( struct packet_buffer *pb, struct client *clnt )
+static
+int process_offer_files( struct packet_buffer *pb, struct client *clnt )
 {
     size_t i;
     uint32_t count;
@@ -168,7 +169,7 @@ process_offer_files( struct packet_buffer *pb, struct client *clnt )
                     if ( TT_UINT32 == tag_hdr->type ) {
                         PB_READ_UINT32(pb, file.media_length);
                     } else if ( TT_STRING == tag_hdr->type ) {
-                        // todo: support string values ( hh:mm:ss)
+                        // todo: support string values ( hh:mm:ss )
                         uint16_t len;
                         PB_READ_UINT16(pb, len);
                         PB_SEEK(pb, len);
@@ -237,6 +238,10 @@ process_offer_files( struct packet_buffer *pb, struct client *clnt )
             }
         }
 
+
+
+        // todo: filter duplicates
+
         if ( db_add_file( &file, clnt ) < 0 ) {
             // todo: something gone wrong
         }
@@ -253,8 +258,8 @@ malformed:
     return -1;
 }
 
-static int
-process_search_request( struct packet_buffer *pb, struct client *clnt )
+static
+int process_search_request( struct packet_buffer *pb, struct client *clnt )
 {
     struct search_node *n, root;
     n = &root;
@@ -358,15 +363,15 @@ process_search_request( struct packet_buffer *pb, struct client *clnt )
         n = n->parent;
     }
 
-    send_search_result(clnt, &root);
+    client_search_files(clnt, &root);
     return 0;
 
 malformed:
     return -1;
 }
 
-static int
-process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
+static
+int process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
 {
     PB_CHECK( clnt->portcheck_finished || (OP_LOGINREQUEST==opcode));
 
@@ -376,8 +381,8 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
         return 0;
 
     case OP_GETSERVERLIST:
-        send_server_ident(clnt);
-        send_server_list(clnt);
+        send_server_ident(clnt->bev_srv);
+        send_server_list(clnt->bev_srv);
         return 0;
 
     case OP_SEARCHREQUEST:
@@ -385,7 +390,7 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
         return 0;
 
     case OP_QUERY_MORE_RESULT:
-        send_reject(clnt);
+        send_reject(clnt->bev_srv);
         return 0;
 
     case OP_DISCONNECT:
@@ -393,7 +398,7 @@ process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
         return 0;
 
     case OP_GETSOURCES:
-        send_found_sources(clnt, pb->ptr);
+        client_get_sources(clnt, pb->ptr);
         return 0;
 
     case OP_OFFERFILES:
@@ -415,8 +420,8 @@ malformed:
     return -1;
 }
 
-static void
-server_read( struct client *clnt )
+static
+void server_read( struct client *clnt )
 {
     struct evbuffer *input = bufferevent_get_input(clnt->bev_srv);
     size_t src_len = evbuffer_get_length(input);
@@ -474,8 +479,8 @@ server_read( struct client *clnt )
     }
 }
 
-static void
-server_event( struct client *clnt, short events )
+static
+void server_event( struct client *clnt, short events )
 {
     if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
         ED2KD_LOGDBG("got EOF or error from %s:%u", clnt->dbg.ip_str, clnt->port);
@@ -483,8 +488,8 @@ server_event( struct client *clnt, short events )
     }
 }
 
-static void
-server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
+static
+void server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
 {
     struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
     struct client *clnt;
@@ -499,28 +504,28 @@ server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
     clnt = client_new();
 
     bev = bufferevent_socket_new(g_instance.evbase, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
-
-    clnt->ip = peer_sa->sin_addr.s_addr;
     clnt->bev_srv = bev;
+    clnt->ip = peer_sa->sin_addr.s_addr;
+    
 #ifdef DEBUG
     evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof clnt->dbg.ip_str);
     ED2KD_LOGDBG("client connected (%s)", clnt->dbg.ip_str);
 #endif
 
-    bufferevent_setcb(bev, server_read_cb, NULL, server_event_cb, clnt);
-    bufferevent_enable(bev, EV_READ|EV_WRITE);
+    bufferevent_setcb(clnt->bev_srv, server_read_cb, NULL, server_event_cb, clnt);
+    bufferevent_enable(clnt->bev_srv, EV_READ|EV_WRITE);
 
-    send_server_message(clnt, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
+    send_server_message(clnt->bev_srv, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
 
     if ( !g_instance.cfg->allow_lowid ) {
         static const char msg_highid[] = "WARNING: Only HighID clients!";
-        send_server_message(clnt, msg_highid, sizeof msg_highid - 1);
+        send_server_message(clnt->bev_srv, msg_highid, sizeof(msg_highid) - 1);
     }
 
     // todo: set timeout for op_login
 }
 
-void *server_job_worker( void *ctx )
+void* server_job_worker( void *ctx )
 {
     (void)ctx;
 
@@ -579,6 +584,9 @@ void *server_job_worker( void *ctx )
                 portcheck_read(clnt);
                 break;
 
+            case JOB_PORTCHECK_TIMEOUT:
+                portcheck_timeout(clnt);
+                break;
             default:
                 assert(0);
                 break;

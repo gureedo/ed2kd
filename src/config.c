@@ -109,8 +109,8 @@ int config_load( const char * path )
         }
 
         if ( config_setting_lookup_int(root, CFG_PORTCHECK_TIMEOUT, &int_val) ) {
-            server_cfg->portcheck_timeout.tv_sec = int_val / 1000;
-            server_cfg->portcheck_timeout.tv_sec = (int_val % 1000) * 1000;
+            //server_cfg->portcheck_timeout.tv_sec = int_val / 1000;
+            //server_cfg->portcheck_timeout.tv_usec = (int_val % 1000) * 1000;
         }  else {
             ED2KD_LOGERR("config: " CFG_PORTCHECK_TIMEOUT " missing");
             ret = -1;

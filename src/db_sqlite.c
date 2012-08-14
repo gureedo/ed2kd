@@ -1,7 +1,11 @@
 #include "db.h"
 #include <string.h>
 #include <malloc.h>
+
 #include <sqlite3.h>
+
+#include "ed2k_proto.h"
+#include "packet.h"
 #include "log.h"
 #include "client.h"
 #include "util.h"
