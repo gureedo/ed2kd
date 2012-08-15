@@ -14,7 +14,7 @@
 #include <event2/bufferevent.h>
 
 #include "../../src/ed2k_proto.h"
-#include "../../src/packet_buffer.h"
+#include "../../src/packet.h"
 
 // stringize macro
 #define _CSTR(x) #x

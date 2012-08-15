@@ -131,26 +131,27 @@ int process_offer_files( struct packet_buffer *pb, struct client *clnt )
 {
     size_t i;
     uint32_t count;
+    struct pub_file *files, *file;
 
     PB_READ_UINT32(pb, count);
     PB_CHECK(count <= 200 );
 
+    i = count;
     // todo: limit total files count on server
 
-    for( i=0; i<count; ++i ) {
+    file = files = (struct pub_file*)calloc(count, sizeof(*files));
+
+    while( i-- > 0 ) {
         uint32_t tag_count, id;
         uint16_t port;
-        struct pub_file file;
-
-        memset(&file, 0, sizeof file);
-
-        PB_MEMCPY(pb, file.hash, sizeof file.hash);
+        
+        PB_MEMCPY(pb, file->hash, sizeof(files->hash));
 
         PB_READ_UINT32(pb, id);
         PB_READ_UINT16(pb, port);
 
         if ( (0xfbfbfbfb == id) && (0xfbfb == port) ) {
-            file.complete = 1;
+            file->complete = 1;
         }
 
         PB_READ_UINT32(pb, tag_count);
@@ -167,7 +168,7 @@ int process_offer_files( struct packet_buffer *pb, struct client *clnt )
             if (tag_hdr->name_len > 1 ) {
                 if( strncmp(TNS_MEDIA_LENGTH, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
                     if ( TT_UINT32 == tag_hdr->type ) {
-                        PB_READ_UINT32(pb, file.media_length);
+                        PB_READ_UINT32(pb, file->media_length);
                     } else if ( TT_STRING == tag_hdr->type ) {
                         // todo: support string values ( hh:mm:ss )
                         uint16_t len;
@@ -178,12 +179,12 @@ int process_offer_files( struct packet_buffer *pb, struct client *clnt )
                     }
                 } else if( strncmp(TNS_MEDIA_BITRATE, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
                     PB_CHECK( TT_UINT32 == tag_hdr->type );
-                    PB_READ_UINT32(pb, file.media_bitrate);
+                    PB_READ_UINT32(pb, file->media_bitrate);
                 } else if( strncmp(TNS_MEDIA_CODEC, (const char*)tag_hdr->name, tag_hdr->name_len) == 0 ) {
                     uint16_t len = MAX_MCODEC_LEN;
                     PB_CHECK(TT_STRING == tag_hdr->type);
-                    PB_READ_STRING(pb, file.media_codec, len);
-                    file.media_codec[len] = 0;
+                    PB_READ_STRING(pb, file->media_codec, len);
+                    file->media_codec[len] = 0;
                 } else {
                     PB_CHECK(0);
                 }
@@ -192,40 +193,40 @@ int process_offer_files( struct packet_buffer *pb, struct client *clnt )
 
                 case TN_FILENAME:
                     PB_CHECK(TT_STRING == tag_hdr->type);
-                    PB_READ_UINT16(pb, file.name_len);
-                    file.name_len = file.name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : file.name_len;
-                    PB_MEMCPY(pb, file.name, file.name_len);
-                    file.name[file.name_len] = 0;
+                    PB_READ_UINT16(pb, file->name_len);
+                    file->name_len = file->name_len > MAX_FILENAME_LEN ? MAX_FILENAME_LEN : file->name_len;
+                    PB_MEMCPY(pb, file->name, file->name_len);
+                    file->name[file->name_len] = 0;
                     break;
 
                 case TN_FILESIZE:
                     PB_CHECK(TT_UINT32 == tag_hdr->type);
-                    PB_READ_UINT32(pb, file.size);
+                    PB_READ_UINT32(pb, file->size);
                     break;
 
                 case TN_FILESIZE_HI: {
                     uint32_t size_hi;
                     PB_CHECK(TT_UINT32 == tag_hdr->type);
                     PB_READ_UINT32(pb, size_hi);
-                    file.size += (uint64_t)size_hi << 32;
+                    file->size += (uint64_t)size_hi << 32;
                     break;
                                      }
 
                 case TN_FILERATING:
                     PB_CHECK(TT_UINT32 == tag_hdr->type);
-                    PB_READ_UINT32(pb, file.rating);
-                    if ( file.rating > 5 ) {
-                        file.rating = 5;
+                    PB_READ_UINT32(pb, file->rating);
+                    if ( file->rating > 5 ) {
+                        file->rating = 5;
                     }
                     break;
 
                 case TN_FILETYPE:
                     if ( TT_UINT32 == tag_hdr->type ) {
-                        PB_READ_UINT32(pb, file.type);
+                        PB_READ_UINT32(pb, file->type);
                     } else if ( TT_STRING == tag_hdr->type ) {
                         uint16_t len;
                         PB_READ_UINT16(pb, len);
-                        file.type = get_ed2k_file_type((const char*)pb->ptr, len);
+                        file->type = get_ed2k_file_type((const char*)pb->ptr, len);
                         PB_SEEK(pb, len);
                     } else {
                         PB_CHECK(0);
@@ -242,9 +243,11 @@ int process_offer_files( struct packet_buffer *pb, struct client *clnt )
 
         // todo: filter duplicates
 
-        if ( db_add_file( &file, clnt ) < 0 ) {
-            // todo: something gone wrong
-        }
+        file++;
+    }
+
+    if ( db_share_files(files, count, clnt) < 0 ) {
+        // todo: something gone wrong
     }
 
     ED2KD_LOGDBG("client %u: published %u files", clnt->id, count);
@@ -529,6 +532,12 @@ void* server_job_worker( void *ctx )
 {
     (void)ctx;
 
+    if ( db_open() < 0 ) {
+        ED2KD_LOGERR("failed to open database");
+        return NULL;
+    }
+
+
     for(;;) {
         struct client *clnt;
         struct job *job;
@@ -609,6 +618,10 @@ void* server_job_worker( void *ctx )
                 }
             }
         }
+    }
+
+    if ( db_close() < 0 ) {
+        ED2KD_LOGERR("failed to close database");
     }
 
     return NULL;

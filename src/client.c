@@ -87,7 +87,7 @@ void client_search_files( struct client *clnt, struct search_node *search_tree )
     //data.files_count = 0;
     evbuffer_add(buf, &data, sizeof(data));
 
-    if ( db_search_file(search_tree, buf, &count) >= 0 ) {
+    if ( db_search_files(search_tree, buf, &count) >= 0 ) {
         struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof(*ph));
         ph->hdr.length = evbuffer_get_length(buf) - sizeof(ph->hdr);
         ph->files_count = count;

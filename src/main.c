@@ -166,8 +166,8 @@ int main( int argc, char *argv[] )
 
     ED2KD_LOGNFO("start listening on %s:%u", g_instance.cfg->listen_addr, g_instance.cfg->listen_port);
 
-    if ( db_open() < 0 ) {
-        ED2KD_LOGERR("failed to open database");
+    if ( db_create() < 0 ) {
+        ED2KD_LOGERR("failed to create database");
         return EXIT_FAILURE;
     }
 
@@ -215,6 +215,10 @@ int main( int argc, char *argv[] )
     evconnlistener_free(listener);
     event_free(sigint_event);
     event_base_free(g_instance.evbase);
+
+    if ( db_destroy() < 0 ) {
+        ED2KD_LOGERR("failed to destroy database");
+    }
 
     config_free();
 

@@ -18,6 +18,14 @@
 #define DEBUG_ONLY(x)
 #endif
 
+#if defined(_MSC_VER)
+#define THREAD_LOCAL __declspec(thread)
+#elif defined(__GNUC__)
+#define THREAD_LOCAL __thread
+#else
+#error "unknown compiler"
+#endif
+
 /**
   @brief convert "DEADBEEF" -> {0xDE,0xAD,0xBE,0xEF}
   @param src       source string

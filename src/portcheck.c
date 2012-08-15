@@ -151,7 +151,7 @@ void portcheck_timeout( struct client *clnt )
     if ( clnt->portcheck_finished )
         return;
 
-    ED2KD_LOGDBG("port check timeout for %u", clnt->id);
+    ED2KD_LOGDBG("port check timeout for %s", clnt->dbg.ip_str);
     client_portcheck_finish(clnt, PORTCHECK_FAILED);
 }
 

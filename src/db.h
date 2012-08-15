@@ -72,15 +72,19 @@ struct search_node {
     };
 };
 
+int db_create();
+
+int db_destroy();
+
 int db_open();
 
 int db_close();
 
-int db_add_file( const struct pub_file *file, const struct client *owner );
+int db_share_files( const struct pub_file *files, size_t count, const struct client *owner );
 
 int db_remove_source( const struct client *owner );
 
-int db_search_file( struct search_node *root, struct evbuffer *buf, size_t *count );
+int db_search_files( struct search_node *root, struct evbuffer *buf, size_t *count );
 
 int db_get_sources( const unsigned char *hash, struct file_source *out_sources, uint8_t *size );
 
