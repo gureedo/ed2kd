@@ -3,11 +3,11 @@
 
 enum log_severity {
 #ifdef DEBUG
-    LOG_DBG,
+        LOG_DBG,
 #endif
-    LOG_NFO,
-    LOG_WRN,
-    LOG_ERR
+        LOG_NFO,
+        LOG_WRN,
+        LOG_ERR
 };
 
 void _ed2kd_log( enum log_severity svrt, const char *fmt, ... );

@@ -57,8 +57,8 @@ struct ebinstance {
     struct event_base *evbase;
     /* Client spawn timer */
     struct event *ev_spawn;
-    /* Pause between spawning clients */
-    struct timeval spawn_pause;
+    /* Common pause between spawning clients */
+    const struct timeval *spawn_pause;
     /* Server address to connect */
     struct sockaddr_in server_sa;
     /* Count of concurrently working clients */
@@ -67,8 +67,8 @@ struct ebinstance {
     int repeat_cnt;
     /* Count currently running clients */
     int running_cnt;
-    /* Pause between client actions */
-    struct timeval action_pause;
+    /* Common pause between client actions */
+    const struct timeval *action_pause;
     /* Number of selected actions */
     int action_cnt;
     /* Array of selected actions */
@@ -304,7 +304,7 @@ void timer_cb( evutil_socket_t fd, short what, void *ctx )
         }
 
         g_eb.repeat_cnt--;
-        evtimer_add(clnt->ev_action, &g_eb.action_pause);
+        evtimer_add(clnt->ev_action, g_eb.action_pause);
     } else {
         client_free(clnt);
     }
@@ -330,7 +330,7 @@ int process_packet( struct packet_buffer *pb, uint8_t opcode, struct ebclient *c
     case OP_IDCHANGE:
         PB_CHECK( process_id_change(pb, clnt) == 0 );
         clnt->ev_action = evtimer_new(g_eb.evbase, timer_cb, clnt);
-        evtimer_add(clnt->ev_action, &g_eb.action_pause);
+        evtimer_add(clnt->ev_action, g_eb.action_pause);
         return 0;
 
     case OP_SERVERMESSAGE:
@@ -460,7 +460,7 @@ void spawn_cb( evutil_socket_t fd, short what, void *ctx )
         g_eb.running_cnt++;
         g_eb.client_cnt--;
         if ( g_eb.client_cnt ) {
-            event_add(g_eb.ev_spawn, &g_eb.spawn_pause);
+            event_add(g_eb.ev_spawn, g_eb.spawn_pause);
         }
     }
 }
@@ -499,10 +499,10 @@ void display_usage()
 int main( int argc, char *argv[] )
 {
     int ret, opt, longIndex = 0;
-    char *server_addr = NULL;
     struct event *ev_sigint;
-    // actions flags
     unsigned offer_flag=0, query_flag=0, source_flag=0;
+    struct timeval tv_action = {0,0}, tv_spawn = {0,0};
+    char *server_addr = NULL;
     
     // parse command line arguments
     opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
@@ -522,8 +522,8 @@ int main( int argc, char *argv[] )
 
         case 'p': {
             int val = atoi(optarg);
-            g_eb.action_pause.tv_sec = val / 1000;
-            g_eb.action_pause.tv_usec = (val % 1000) * 1000;
+            tv_action.tv_sec = val / 1000;
+            tv_action.tv_usec = (val % 1000) * 1000;
             break;
         }
 
@@ -533,8 +533,8 @@ int main( int argc, char *argv[] )
 
         case 'w': {
             int val = atoi(optarg);
-            g_eb.spawn_pause.tv_sec = val / 1000;
-            g_eb.spawn_pause.tv_usec = (val % 1000) * 1000;
+            tv_spawn.tv_sec = val / 1000;
+            tv_spawn.tv_usec = (val % 1000) * 1000;
             break;
         }
 
@@ -586,14 +586,14 @@ int main( int argc, char *argv[] )
         g_eb.repeat_cnt = 0;
     }
 
-    if ( g_eb.spawn_pause.tv_sec == 0 && g_eb.spawn_pause.tv_usec == 0 ) {
-        g_eb.spawn_pause.tv_sec = DEFAULT_SPAWN_PAUSE / 1000;
-        g_eb.spawn_pause.tv_usec = (DEFAULT_SPAWN_PAUSE % 1000) * 1000;
+    if ( tv_spawn.tv_sec == 0 && tv_spawn.tv_usec == 0 ) {
+        tv_spawn.tv_sec = DEFAULT_SPAWN_PAUSE / 1000;
+        tv_spawn.tv_usec = (DEFAULT_SPAWN_PAUSE % 1000) * 1000;
     }
 
-    if ( g_eb.action_pause.tv_sec == 0 && g_eb.action_pause.tv_usec == 0 ) {
-        g_eb.action_pause.tv_sec = DEFAULT_ACTION_PAUSE / 1000;
-        g_eb.action_pause.tv_usec = (DEFAULT_ACTION_PAUSE % 1000) * 1000;
+    if ( tv_action.tv_sec == 0 && tv_action.tv_usec == 0 ) {
+        tv_action.tv_sec = DEFAULT_ACTION_PAUSE / 1000;
+        tv_action.tv_usec = (DEFAULT_ACTION_PAUSE % 1000) * 1000;
     }
 
     if ( evutil_secure_rng_init() < 0 ) {
@@ -622,9 +622,13 @@ int main( int argc, char *argv[] )
     ev_sigint = evsignal_new(g_eb.evbase, SIGINT, signal_cb, NULL);
     evsignal_add(ev_sigint, NULL);
 
+    // setup common timers timeouts
+    g_eb.action_pause = event_base_init_common_timeout(g_eb.evbase, &tv_action);
+    g_eb.spawn_pause = event_base_init_common_timeout(g_eb.evbase, &tv_spawn);
+    
     // setup spawn timer
     g_eb.ev_spawn = evtimer_new(g_eb.evbase, spawn_cb, NULL);
-    event_add(g_eb.ev_spawn, &g_eb.spawn_pause);
+    event_add(g_eb.ev_spawn, g_eb.spawn_pause);
 
     ret = event_base_dispatch(g_eb.evbase);
     if ( ret < 0 ) {

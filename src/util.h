@@ -8,10 +8,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifndef INET_ADDRSTRLEN
-#define INET_ADDRSTRLEN 16
-#endif
-
 #ifdef DEBUG
 #define DEBUG_ONLY(x) x
 #else
@@ -24,6 +20,10 @@
 #define THREAD_LOCAL __thread
 #else
 #error "unknown compiler"
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
 /**
@@ -46,12 +46,12 @@ int bin2hex( const unsigned char *src, char *dst, size_t dst_len );
 
 /**
   @brief generate random ed2k user hash
-  @param hash  destination buffer
+  @param hash  destination buffer, at least HASH_SIZE bytes
 */
 void get_random_user_hash( unsigned char *hash );
 
 /**
-  @brief get integer eDonkey2000 type from string type
+  @brief get integer ed2k file type from string file type
   @param type   string type
   @param len    length of type without null byte
 */

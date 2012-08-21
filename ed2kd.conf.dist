@@ -18,3 +18,6 @@ allow_lowid = 1;
 
 // port check timeout (milliseconds)
 portcheck_timeout = 2000;
+ 
+// server status nitify interval (milliseconds)
+status_notify_interval = 5000;
