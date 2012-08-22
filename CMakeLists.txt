@@ -15,7 +15,7 @@ SET(INCLUDES ${LIBEVENT_INCLUDE_DIRS} ${LIBCONFIG_INCLUDE_DIRS} ${ZLIB_INCLUDE_D
 
 SET(LIBS ${LIBCONFIG_LIBRARIES} ${LIBEVENT_LIBRARIES} ${ZLIB_LIBRARIES} )
 
-SET(SOURCES src/client.c src/config.c src/event_callback.c src/server.c src/log.c src/main.c src/portcheck.c src/util.c)
+SET(SOURCES src/client.c src/config.c src/event_callback.c src/server.c src/log.c src/main.c src/portcheck.c src/util.c src/packet.c)
 
 IF( ${BACKEND_DB} STREQUAL "sqlite3" )
     FIND_PACKAGE(SQLite3 3.7.13 REQUIRED)

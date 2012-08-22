@@ -69,6 +69,9 @@ void server_accept_error_cb( struct evconnlistener *listener, void *ctx )
 
 void server_status_notify_cb( evutil_socket_t fd, short events, void *ctx )
 {
+        (void)fd;
+        (void)events;
+
         struct job *job = (struct job*)calloc(1, sizeof(*job));
 
         job->type = JOB_SERVER_STATUS_NOTIFY;
@@ -90,6 +93,8 @@ void portcheck_read_cb( struct bufferevent *bev, void *ctx )
 
 void portcheck_timeout_cb( evutil_socket_t fd, short events, void *ctx )
 {
+        (void)fd;
+        (void)events;
         struct job *job = (struct job*)calloc(1, sizeof(*job));
 
         job->type = JOB_PORTCHECK_TIMEOUT;

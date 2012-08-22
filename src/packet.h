@@ -1,3 +1,9 @@
+#pragma once
+
+#ifndef PACKET_H
+#define PACKET_H
+
+#include <stddef.h>
 #include <stdint.h>
 
 struct bufferevent;
@@ -102,3 +108,5 @@ struct packet_buffer {
 
 #define PB_SKIP_TAGHDR(pb, hdr) \
         PB_SEEK((pb), sizeof(uint8_t)+sizeof(uint16_t)+(hdr)->name_len)
+
+#endif // PACKET_H

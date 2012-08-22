@@ -12,28 +12,31 @@ DEFINES += DEBUG
 }
 
 SOURCES += \
+    src/util.c \
+    src/server.c \
     src/portcheck.c \
+    src/packet.c \
     src/main.c \
     src/log.c \
-    src/config.c \
-    src/client.c \
-    src/util.c \
-    src/db_sqlite.c \
     src/event_callback.c \
-    src/server.c
+    src/db_sqlite.c \
+    src/config.c \
+    src/client.c
 
 HEADERS  += \
     src/packet_buffer.h \
+    src/version.h \
+    src/util.h \
+    src/uthash.h \
+    src/server.h \
+    src/queue.h \
+    src/portcheck.h \
+    src/packet.h \
     src/packed_struct.h \
     src/log.h \
+    src/job.h \
+    src/event_callback.h \
     src/ed2k_proto.h \
     src/db.h \
     src/config.h \
-    src/client.h \
-    src/util.h \
-    src/portcheck.h \
-    src/version.h \
-    src/event_callback.h \
-    src/server.h \
-    src/job.h \
-    src/queue.h
+    src/client.h

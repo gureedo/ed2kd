@@ -11,6 +11,7 @@
 
 struct search_node;
 struct shared_file_entry;
+struct pub_file;
 
 #define MAX_NICK_LEN		255
 #define	MAX_FOUND_SOURCES	200 // move to config

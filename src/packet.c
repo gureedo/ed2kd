@@ -1,5 +1,6 @@
 #include "packet.h"
-#include <math.h>
+#include <math.h>       /* floor */
+#include <string.h>     /* memcpy */
 
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
