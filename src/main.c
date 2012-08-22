@@ -4,10 +4,9 @@
 #include <string.h>
 #include <signal.h>
 #include <getopt.h>
-#if defined(WIN32)
+#if defined(_WIN32)
 #include <winsock2.h>
-#endif
-#if defined(__GNUC__)
+#elif defined(__GNUC__)
 #include <alloca.h>
 #endif
 #include <omp.h>

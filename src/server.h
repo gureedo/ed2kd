@@ -4,7 +4,7 @@
 #define SERVER_H
 
 /**
-@file server.h General server configuration variables and routines
+  @file server.h General server configuration variables and routines
 */
 
 #include <stdint.h>

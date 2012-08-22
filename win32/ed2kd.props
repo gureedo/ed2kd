@@ -11,7 +11,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(ProjectDir)..\src\win32;$(ProjectDir)..\3rdparty\libevent\include;$(ProjectDir)..\3rdparty\libevent\WIN32-Code;$(ProjectDir)..\3rdparty\libconfig\lib;$(ProjectDir)..\3rdparty\sqlite;$(ProjectDir)..\3rdparty\zlib;$(ProjectDir)..\3rdparty\pthreads;$(ProjectDir)..\3rdparty\libatomic_ops\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <PreprocessorDefinitions>LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;AO_ASSUME_WINDOWS98;AO_ASSUME_VISTA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>LIBCONFIG_STATIC;REPLACE_GETOPT;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;AO_ASSUME_WINDOWS98;AO_ASSUME_VISTA;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>

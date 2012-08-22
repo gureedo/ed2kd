@@ -30,11 +30,11 @@ static
         AO_t old_id, new_id;
 
         do {
-                old_id = AO_load(&g_instance.lowid_counter);
+                old_id = AO_load_acquire(&g_instance.lowid_counter);
                 new_id = old_id + 1;
                 if ( new_id > MAX_LOWID )
                         new_id = 0;
-        } while ( !AO_compare_and_swap(&g_instance.lowid_counter, old_id, new_id) );
+        } while ( !AO_compare_and_swap_release(&g_instance.lowid_counter, old_id, new_id) );
 
         return new_id;
 }
@@ -83,9 +83,10 @@ void client_delete( struct client *clnt )
                 free(she);
         }
 
-        free(clnt);
-
+        AO_fetch_and_sub(&g_instance.file_count, clnt->file_count);
         AO_fetch_and_sub1(&g_instance.user_count);
+
+        free(clnt);
 }
 
 void client_search_files( struct client *clnt, struct search_node *search_tree )

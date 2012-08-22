@@ -61,7 +61,7 @@ struct client {
         /* pending events count */
         volatile AO_t pending_evcnt;
         /* scheduled deletion flag */
-        volatile AO_t sched_del;
+        unsigned sched_del:1;
         /* local job queue */
         struct job_queue jqueue;
 

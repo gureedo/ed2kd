@@ -17,7 +17,7 @@ void server_add_job( struct job *job )
 {
         if ( job->client ) {
                 pthread_mutex_lock(&job->client->job_mutex);
-                if ( job->client->pending_evcnt ) {
+                if ( AO_load_acquire(&job->client->pending_evcnt) ) {
                         STAILQ_INSERT_TAIL(&job->client->jqueue, job, qentry);
                 } else {
                         pthread_mutex_lock(&g_instance.job_mutex);
@@ -25,7 +25,7 @@ void server_add_job( struct job *job )
                         pthread_mutex_unlock(&g_instance.job_mutex);
                         pthread_cond_signal(&g_instance.job_cond);
                 }
-                job->client->pending_evcnt++;
+                AO_fetch_and_add1_release(&job->client->pending_evcnt);
                 pthread_mutex_unlock(&job->client->job_mutex);
         } else {
                 pthread_mutex_lock(&g_instance.job_mutex);
@@ -596,7 +596,7 @@ void* server_job_worker( void *ctx )
                                         client_delete(clnt);
                                 } else {
                                         pthread_mutex_lock(&clnt->job_mutex);
-                                        clnt->pending_evcnt--;
+                                        AO_fetch_and_sub1(&clnt->pending_evcnt);
                                         if ( !STAILQ_EMPTY(&clnt->jqueue) ) {
                                                 job = STAILQ_FIRST(&clnt->jqueue);
                                                 STAILQ_REMOVE_HEAD(&clnt->jqueue, qentry);
