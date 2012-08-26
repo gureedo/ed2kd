@@ -15,19 +15,19 @@
 
 void server_add_job( struct job *job )
 {
+        int added = 0;
+
         if ( job->client ) {
                 pthread_mutex_lock(&job->client->job_mutex);
                 if ( AO_load_acquire(&job->client->pending_evcnt) ) {
                         STAILQ_INSERT_TAIL(&job->client->jqueue, job, qentry);
-                } else {
-                        pthread_mutex_lock(&g_instance.job_mutex);
-                        STAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
-                        pthread_mutex_unlock(&g_instance.job_mutex);
-                        pthread_cond_signal(&g_instance.job_cond);
+                        added = 1;
                 }
                 AO_fetch_and_add1_release(&job->client->pending_evcnt);
                 pthread_mutex_unlock(&job->client->job_mutex);
-        } else {
+        }
+        
+        if ( !added ) {
                 pthread_mutex_lock(&g_instance.job_mutex);
                 STAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
                 pthread_mutex_unlock(&g_instance.job_mutex);

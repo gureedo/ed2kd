@@ -43,7 +43,7 @@ struct ebclient {
     /* eDonkey2000 ID */
     uint32_t id;
     /* eDonkey2000 hash */
-    unsigned char hash[HASH_SIZE];
+    unsigned char hash[ED2K_HASH_SIZE];
     /* connection bufferevent */
     struct bufferevent *bev;
     /* action timer */
@@ -79,7 +79,7 @@ PACKED_STRUCT(
 struct packet_login {
     struct packet_header hdr;
     uint8_t opcode;
-    unsigned char hash[HASH_SIZE];
+    unsigned char hash[ED2K_HASH_SIZE];
     uint32_t id;
     uint16_t port;
     uint32_t tag_count;
@@ -113,7 +113,7 @@ struct packet_offer_files {
 
 PACKED_STRUCT(
 struct pub_file {
-    unsigned char hash[HASH_SIZE];
+    unsigned char hash[ED2K_HASH_SIZE];
     uint32_t id;
     uint16_t port;
     uint32_t tag_count;

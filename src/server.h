@@ -13,6 +13,7 @@
 #include <atomic_ops.h>
 
 struct event_base;
+struct evconnlistener;
 struct bufferevent;
 struct client;
 
@@ -57,6 +58,15 @@ struct server_config
         /* server status sending interval */
         struct timeval status_notify_tv;
 
+        /* maximum connected clients */
+        size_t max_clients;
+
+        /* maximum shared files */
+        size_t max_files;
+
+        /* maximum shared files per client */
+        size_t max_files_per_client;
+
         /* allow lowid clients flag */
         unsigned allow_lowid:1;
 };
@@ -64,6 +74,8 @@ struct server_config
 struct server_instance {
         /* event base */
         struct event_base *evbase;
+        /* tcp connection listener */
+        struct evconnlistener *tcp_listener;
         /* server configuration loaded from file */
         const struct server_config *cfg;
         /* working threads count */

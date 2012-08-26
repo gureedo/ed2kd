@@ -7,6 +7,7 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
+#include <event2/listener.h>
 
 #include "ed2k_proto.h"
 #include "server.h"
@@ -24,8 +25,7 @@ struct shared_file_entry {
         UT_hash_handle hh;
 };
 
-static 
-        uint32_t get_next_lowid()
+static uint32_t get_next_lowid()
 {
         AO_t old_id, new_id;
 
@@ -44,6 +44,10 @@ struct client *client_new()
         struct client *client = (struct client*)calloc(1, sizeof(*client));
         pthread_mutex_init(&client->job_mutex, NULL);
         STAILQ_INIT(&client->jqueue);
+
+        if ( AO_fetch_and_add1(&g_instance.user_count) == g_instance.cfg->max_clients ) {
+                evconnlistener_disable(g_instance.tcp_listener);
+        }
 
         return client;
 }
@@ -80,13 +84,19 @@ void client_delete( struct client *clnt )
         }
 
         HASH_ITER(hh, clnt->shared_files, she, she_tmp) {
+                HASH_DEL(clnt->shared_files, she);
                 free(she);
         }
 
-        AO_fetch_and_sub(&g_instance.file_count, clnt->file_count);
-        AO_fetch_and_sub1(&g_instance.user_count);
+        AO_fetch_and_add(&g_instance.file_count, -clnt->file_count);
+
+        if ( AO_fetch_and_sub1(&g_instance.user_count) == g_instance.cfg->max_clients ) {
+                evconnlistener_enable(g_instance.tcp_listener);
+        }
 
         free(clnt);
+
+
 }
 
 void client_search_files( struct client *clnt, struct search_node *search_tree )
@@ -175,7 +185,6 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
                 clnt->id = clnt->ip;
         }
 
-        AO_fetch_and_add1(&g_instance.user_count);
         send_id_change(clnt->bev, clnt->id);
 
         clnt->evtimer_status_notify = event_new(g_instance.evbase, -1, EV_PERSIST, server_status_notify_cb, clnt);
@@ -186,6 +195,12 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
 {
         size_t i, real_count = 0;
         struct pub_file *f = files;
+
+        if ( clnt->file_count > g_instance.cfg->max_files_per_client )
+                return;
+        
+        if ( AO_load(&g_instance.file_count) > g_instance.cfg->max_files )
+                return;
 
         for ( i=0; i<count; ++i ) {
                 struct shared_file_entry *she = NULL;

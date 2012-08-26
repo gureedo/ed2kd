@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <atomic_ops.h>
 
 #ifdef DEBUG
 #define DEBUG_ONLY(x) x
@@ -57,22 +56,5 @@ void get_random_user_hash( unsigned char *hash );
   @param len    length of type without null byte
 */
 uint8_t get_ed2k_file_type( const char *type, size_t len );
-
-/*
-  @brief performs atomic substitution
-  @param type   string type
-  @param len    length of type without null byte
-*/
-static __inline AO_t AO_fetch_and_sub( volatile AO_t *addr, AO_t decr )
-{
-        AO_t oldval, newval;
-
-        do {
-                oldval = AO_load_acquire(addr);
-                newval = oldval - decr;
-        } while ( !AO_compare_and_swap_release(addr, oldval, newval) );
-
-        return newval;
-}
 
 #endif // UTIL_H

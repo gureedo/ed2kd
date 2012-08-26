@@ -41,7 +41,7 @@ void display_version( void )
         puts(
                 "ed2kd v" ED2KD_VER_STR "\n"
                 "Build on: "__DATE__ " " __TIME__
-                );
+        );
 }
 
 void display_usage( void )
@@ -51,7 +51,21 @@ void display_usage( void )
                 "--help, -h\tshow this help\n"
                 "--version, -v\tprint version\n"
                 "--genhash, -g\tgenerate random ed2k hash"
-                );
+        );
+}
+
+void display_libevent_info( void )
+{
+        int i;
+        const char **methods = event_get_supported_methods();
+        if ( NULL == methods ) {
+                ED2KD_LOGERR("failed to get supported libevent methods");
+                return;
+        }
+        ED2KD_LOGDBG("using libevent %s. available methods are:", event_get_version());
+        for ( i=0; methods[i] != NULL; ++i ) {
+                ED2KD_LOGDBG("    %s", methods[i]);
+        }
 }
 
 int main( int argc, char *argv[] )
@@ -60,7 +74,9 @@ int main( int argc, char *argv[] )
         struct event *sigint_event;
         struct sockaddr_in bind_sa;
         int bind_sa_len;
-        struct evconnlistener *listener;
+#ifdef _WIN32
+        WSADATA WSAData;
+#endif
 
         if ( evutil_secure_rng_init() < 0 ) {
                 ED2KD_LOGERR("Failed to seed random number generator");
@@ -100,29 +116,14 @@ int main( int argc, char *argv[] )
                 return EXIT_FAILURE;
         }
 
-#ifdef WIN32
-        {
-                WSADATA WSAData;
-                if ( 0 != WSAStartup(0x0201, &WSAData) ) {
-                        ED2KD_LOGWRN("WSAStartup failed!");
-                        return EXIT_FAILURE;
-                }
-
+#ifdef _WIN32
+        if ( 0 != WSAStartup(0x0201, &WSAData) ) {
+                ED2KD_LOGWRN("WSAStartup failed!");
+                return EXIT_FAILURE;
         }
 #endif
 
-        {
-                int i;
-                const char **methods = event_get_supported_methods();
-                if ( NULL == methods ) {
-                        ED2KD_LOGERR("failed to get supported libevent methods");
-                        return EXIT_FAILURE;
-                }
-                ED2KD_LOGDBG("using libevent %s. available methods are:", event_get_version());
-                for ( i=0; methods[i] != NULL; ++i ) {
-                        ED2KD_LOGDBG("    %s", methods[i]);
-                }
-        }
+        display_libevent_info();
 
 #ifdef EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED
         ret = evthread_use_windows_threads();
@@ -142,7 +143,6 @@ int main( int argc, char *argv[] )
                 return EXIT_FAILURE;
         }
 
-        // setup signals
         sigint_event = evsignal_new(g_instance.evbase, SIGINT, signal_cb, NULL);
         evsignal_add(sigint_event, NULL);
 
@@ -156,16 +156,16 @@ int main( int argc, char *argv[] )
         bind_sa.sin_port = htons(g_instance.cfg->listen_port);
         bind_sa.sin_family = AF_INET;
 
-        listener = evconnlistener_new_bind(g_instance.evbase,
+        g_instance.tcp_listener = evconnlistener_new_bind(g_instance.evbase,
                 server_accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
                 g_instance.cfg->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
-        if ( NULL == listener ) {
+        if ( NULL == g_instance.tcp_listener ) {
                 int err = EVUTIL_SOCKET_ERROR();
                 ED2KD_LOGERR("failed to start listen on %s:%u, last error: %s", g_instance.cfg->listen_addr, g_instance.cfg->listen_port, evutil_socket_error_to_string(err));
                 return EXIT_FAILURE;
         }
 
-        evconnlistener_set_error_cb(listener, server_accept_error_cb);
+        evconnlistener_set_error_cb(g_instance.tcp_listener, server_accept_error_cb);
 
         ED2KD_LOGNFO("start listening on %s:%u", g_instance.cfg->listen_addr, g_instance.cfg->listen_port);
 
@@ -215,7 +215,7 @@ int main( int argc, char *argv[] )
                 }
         }
 
-        evconnlistener_free(listener);
+        evconnlistener_free(g_instance.tcp_listener);
         event_free(sigint_event);
         event_base_free(g_instance.evbase);
 

@@ -13,16 +13,19 @@
 
 #define CFG_DEFAULT_PATH "ed2kd.conf"
 
-#define CFG_LISTEN_ADDR                   "listen_addr"
-#define CFG_LISTEN_PORT                   "listen_port"
-#define CFG_LISTEN_BACKLOG                "listen_backlog"
-#define CFG_WELCOME_MESSAGE               "welcome_message"
-#define CFG_SERVER_HASH                   "server_hash"
-#define CFG_SERVER_NAME                   "server_name"
-#define CFG_SERVER_DESCR                  "server_descr"
-#define CFG_ALLOW_LOWID                   "allow_lowid"
-#define CFG_PORTCHECK_TIMEOUT             "portcheck_timeout"
-#define CFG_STATUS_NOTIFY_INTERVAL        "status_notify_interval"
+#define CFG_LISTEN_ADDR                 "listen_addr"
+#define CFG_LISTEN_PORT                 "listen_port"
+#define CFG_LISTEN_BACKLOG              "listen_backlog"
+#define CFG_WELCOME_MESSAGE             "welcome_message"
+#define CFG_SERVER_HASH                 "server_hash"
+#define CFG_SERVER_NAME                 "server_name"
+#define CFG_SERVER_DESCR                "server_descr"
+#define CFG_ALLOW_LOWID                 "allow_lowid"
+#define CFG_PORTCHECK_TIMEOUT           "portcheck_timeout"
+#define CFG_STATUS_NOTIFY_INTERVAL      "status_notify_interval"
+#define CFG_MAX_CLIENTS                 "max_clients"
+#define CFG_MAX_FILES                   "max_files"
+#define CFG_MAX_FILES_PER_CLIENT        "max_files_per_client"
 
 int config_load( const char * path )
 {
@@ -124,6 +127,30 @@ int config_load( const char * path )
                         server_cfg->status_notify_tv.tv_usec = (int_val % 1000) * 1000;
                 }  else {
                         ED2KD_LOGERR("config: " CFG_STATUS_NOTIFY_INTERVAL " missing");
+                        ret = -1;
+                }
+
+                // max clients
+                if ( config_setting_lookup_int(root, CFG_MAX_CLIENTS, &int_val) ) {
+                        server_cfg->max_clients = int_val;
+                } else {
+                        ED2KD_LOGERR("config: " CFG_MAX_CLIENTS " missing");
+                        ret = -1;
+                }
+
+                // max files
+                if ( config_setting_lookup_int(root, CFG_MAX_FILES, &int_val) ) {
+                        server_cfg->max_files = int_val;
+                } else {
+                        ED2KD_LOGERR("config: " CFG_MAX_FILES " missing");
+                        ret = -1;
+                }
+
+                // max files
+                if ( config_setting_lookup_int(root, CFG_MAX_FILES_PER_CLIENT, &int_val) ) {
+                        server_cfg->max_files_per_client = int_val;
+                } else {
+                        ED2KD_LOGERR("config: " CFG_MAX_FILES_PER_CLIENT " missing");
                         ret = -1;
                 }
 

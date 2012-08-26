@@ -1,23 +1,32 @@
-// server hash, required
+// server hash
 server_hash = "cc9039c4e1b90e12756c50885dbe0e6f";
 
-// listen address, required
+// listen address
 listen_addr = "0.0.0.0";
 
-// listen port, required
+// listen port
 listen_port = 4661;
 
-// listen backlog, optional
+// listen backlog
 listen_backlog = 5;
 
 // welcom message, optional
 welcome_message = "test messaage";
 
-// allow lowid clients, required
+// allow lowid clients
 allow_lowid = 1;
 
 // port check timeout (milliseconds)
-portcheck_timeout = 2000;
+portcheck_timeout = 20000;
  
-// server status nitify interval (milliseconds)
+// server status notify interval (milliseconds)
 status_notify_interval = 5000;
+
+// maximum connected clients
+max_clients = 100000;
+
+// maximum shared files on server
+max_files = 100000000;
+
+// maximum shared files per client
+max_files_per_client = 20000;
