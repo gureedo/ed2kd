@@ -168,9 +168,9 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
         clnt->lowid = (PORTCHECK_SUCCESS != result);
 
         if ( clnt->lowid ) {
-                static const char msg_lowid[] = "WARNING: You have a lowid. Please review your network config and/or your settings.";
+                static const char msg[] = "WARNING: You have a lowid. Please review your network config and/or your settings.";
+                send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 ED2KD_LOGDBG("port check failed (%s:%d)", clnt->dbg.ip_str, clnt->port);
-                send_server_message(clnt->bev, msg_lowid, sizeof(msg_lowid) - 1);
         }
 
         if ( clnt->lowid ) {
@@ -196,11 +196,17 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
         size_t i, real_count = 0;
         struct pub_file *f = files;
 
-        if ( clnt->file_count > g_instance.cfg->max_files_per_client )
+        if ( clnt->file_count > g_instance.cfg->max_files_per_client ) {
+                static const char msg[] = "WARNING: You reached maximum shared files limit";
+                send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
+        }
         
-        if ( AO_load(&g_instance.file_count) > g_instance.cfg->max_files )
+        if ( AO_load(&g_instance.file_count) > g_instance.cfg->max_files ) {
+                static const char msg[] = "WARNING: Server reached maximum shared files limit";
+                send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
+        }
 
         for ( i=0; i<count; ++i ) {
                 struct shared_file_entry *she = NULL;
