@@ -197,13 +197,13 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
         struct pub_file *f = files;
 
         if ( clnt->file_count > g_instance.cfg->max_files_per_client ) {
-                static const char msg[] = "WARNING: You reached maximum shared files limit";
+                static const char msg[] = "WARNING: You reached shared files limit";
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
         }
         
         if ( AO_load(&g_instance.file_count) > g_instance.cfg->max_files ) {
-                static const char msg[] = "WARNING: Server reached maximum shared files limit";
+                static const char msg[] = "WARNING: Server reached shared files limit";
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
         }

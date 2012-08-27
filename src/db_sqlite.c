@@ -37,7 +37,17 @@ static uint64_t
 #define GET_SID_ID(sid)     (uint32_t)((sid)>>32)
 #define GET_SID_PORT(sid)   (uint16_t)(sid)
 
-static THREAD_LOCAL sqlite3 *g_db;
+enum statement_types {
+        SHARE_UPD,
+        SHARE_INS,
+        SHARE_SRC,
+        REMOVE_SRC,
+        GET_SRC,
+        STMT_COUNT
+};
+
+static THREAD_LOCAL sqlite3 *s_db;
+static THREAD_LOCAL sqlite3_stmt *s_stmt[STMT_COUNT];
 
 int db_create()
 {
@@ -120,19 +130,19 @@ int db_create()
                 return -1;
         }
 
-        err = sqlite3_open_v2(DB_NAME, &g_db, DB_OPEN_FLAGS, NULL);
+        err = sqlite3_open_v2(DB_NAME, &s_db, DB_OPEN_FLAGS, NULL);
 
         if ( SQLITE_OK == err ) {
                 char *errmsg;
 
-                err = sqlite3_exec(g_db, query, NULL, NULL, &errmsg);
+                err = sqlite3_exec(s_db, query, NULL, NULL, &errmsg);
                 if ( SQLITE_OK != err ) {
                         ED2KD_LOGERR("failed to execute database init script (%s)", errmsg);
                         sqlite3_free(errmsg);
                         return -1;
                 }
         } else {
-                ED2KD_LOGERR("failed to create DB (%s)", sqlite3_errmsg(g_db));
+                ED2KD_LOGERR("failed to create DB (%s)", sqlite3_errmsg(s_db));
                 return -1;
         }
 
@@ -141,15 +151,41 @@ int db_create()
 
 int db_open()
 {
-        int err;
-        err = sqlite3_open_v2(DB_NAME, &g_db, DB_OPEN_FLAGS, NULL);
+        int err, i;
+        const char *tail;
 
+        static const char query_share_upd[] =
+                "UPDATE files SET name=?,ext=?,size=?,type=?,mlength=?,mbitrate=?,mcodec=? WHERE fid=?";
+        static const char query_share_ins[] =
+                "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec) "
+                "   VALUES(?,?,?,?,?,?,?,?,?)";
+        static const char query_share_src[] =
+                "INSERT INTO sources(fid,sid,complete,rating) VALUES(?,?,?,?)";
+        static const char query_remove_src[] =
+                "DELETE FROM sources WHERE sid=?";
+        static const char query_get_src[] =
+                "SELECT sid FROM sources WHERE fid=? LIMIT ?";
+
+        err = sqlite3_open_v2(DB_NAME, &s_db, DB_OPEN_FLAGS, NULL);
         if ( SQLITE_OK != err ) {
-                ED2KD_LOGERR("failed to open DB (%s)", sqlite3_errmsg(g_db));
+                ED2KD_LOGERR("failed to open DB (%s)", sqlite3_errmsg(s_db));
                 return -1;
         }
 
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(s_db, query_share_upd, sizeof(query_share_upd), &s_stmt[SHARE_UPD], &tail) );
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(s_db, query_share_ins, sizeof(query_share_ins), &s_stmt[SHARE_INS], &tail) );
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(s_db, query_share_src, sizeof(query_share_src), &s_stmt[SHARE_SRC], &tail) );
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(s_db, query_remove_src, sizeof(query_remove_src), &s_stmt[REMOVE_SRC], &tail) );
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(s_db, query_get_src, sizeof(query_get_src), &s_stmt[GET_SRC], &tail) );
+
         return 0;
+
+failed:
+        for ( i=0; i<STMT_COUNT; ++i ) {
+                if ( s_stmt[i] )
+                        sqlite3_finalize(s_stmt[i]);
+        }
+        return -1;
 }
 
 int db_destroy()
@@ -159,26 +195,11 @@ int db_destroy()
 
 int db_close()
 {
-        return (SQLITE_OK == sqlite3_close(g_db)) ? 0 : -1;
+        return (SQLITE_OK == sqlite3_close(s_db)) ? 0 : -1;
 }
 
 int db_share_files( const struct pub_file *files, size_t count, const struct client *owner )
 {
-        static const char query_upd[] =
-                "UPDATE files SET name=?,ext=?,size=?,type=?,mlength=?,mbitrate=?,mcodec=? WHERE fid=?";
-        static const char query_ins[] =
-                "INSERT OR REPLACE INTO files(fid,hash,name,ext,size,type,mlength,mbitrate,mcodec) "
-                "   VALUES(?,?,?,?,?,?,?,?,?)";
-        static const char query_src[] =
-                "INSERT INTO sources(fid,sid,complete,rating) VALUES(?,?,?,?)";
-
-        sqlite3_stmt *stmt_upd, *stmt_ins, *stmt_src;
-        const char *tail;
-
-        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query_upd, sizeof(query_upd), &stmt_upd, &tail) );
-        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query_ins, sizeof(query_ins), &stmt_ins, &tail) );
-        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query_src, sizeof(query_src), &stmt_src, &tail) );
-
         while ( count-- > 0 ) {
                 const char *ext;
                 int ext_len = 0;
@@ -205,73 +226,59 @@ int db_share_files( const struct pub_file *files, size_t count, const struct cli
                 }
 
                 i=1;
-                DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt_upd, i++, files->name, files->name_len, SQLITE_STATIC) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt_upd, i++, ext, ext_len, SQLITE_STATIC) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt_upd, i++, files->size) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_upd, i++, files->type) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_upd, i++, files->media_length) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_upd, i++, files->media_bitrate) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt_upd, i++, files->media_codec, files->media_codec_len, SQLITE_STATIC) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt_upd, i++,  fid) );
-                DB_CHECK( SQLITE_DONE == sqlite3_step(stmt_upd) );
-                sqlite3_reset(stmt_upd);
+                DB_CHECK( SQLITE_OK == sqlite3_reset(s_stmt[SHARE_UPD]) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_text(s_stmt[SHARE_UPD], i++, files->name, files->name_len, SQLITE_STATIC) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_text(s_stmt[SHARE_UPD], i++, ext, ext_len, SQLITE_STATIC) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[SHARE_UPD], i++, files->size) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_UPD], i++, files->type) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_UPD], i++, files->media_length) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_UPD], i++, files->media_bitrate) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_text(s_stmt[SHARE_UPD], i++, files->media_codec, files->media_codec_len, SQLITE_STATIC) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[SHARE_UPD], i++,  fid) );
+                DB_CHECK( SQLITE_DONE == sqlite3_step(s_stmt[SHARE_UPD]) );
 
-                if ( !sqlite3_changes(g_db) ) {
+                if ( !sqlite3_changes(s_db) ) {
                         i=1;
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt_ins, i++,  fid) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_blob(stmt_ins, i++, files->hash, sizeof(files->hash), SQLITE_STATIC) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt_ins, i++, files->name, files->name_len, SQLITE_STATIC) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt_ins, i++, ext, ext_len, SQLITE_STATIC) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt_ins, i++, files->size) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_ins, i++, files->type) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_ins, i++, files->media_length) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_ins, i++, files->media_bitrate) );
-                        DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt_ins, i++, files->media_codec, files->media_codec_len, SQLITE_STATIC) );
-                        DB_CHECK( SQLITE_DONE == sqlite3_step(stmt_ins) );
-                        sqlite3_reset(stmt_ins);
+                        DB_CHECK( SQLITE_OK == sqlite3_reset(s_stmt[SHARE_INS]) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[SHARE_INS], i++,  fid) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_blob(s_stmt[SHARE_INS], i++, files->hash, sizeof(files->hash), SQLITE_STATIC) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_text(s_stmt[SHARE_INS], i++, files->name, files->name_len, SQLITE_STATIC) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_text(s_stmt[SHARE_INS], i++, ext, ext_len, SQLITE_STATIC) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[SHARE_INS], i++, files->size) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_INS], i++, files->type) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_INS], i++, files->media_length) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_INS], i++, files->media_bitrate) );
+                        DB_CHECK( SQLITE_OK == sqlite3_bind_text(s_stmt[SHARE_INS], i++, files->media_codec, files->media_codec_len, SQLITE_STATIC) );
+                        DB_CHECK( SQLITE_DONE == sqlite3_step(s_stmt[SHARE_INS]) );
                 }
 
                 i=1;
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt_src, i++, fid) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt_src, i++, MAKE_SID(owner)) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_src, i++, files->complete) );
-                DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt_src, i++, files->rating) );
-                DB_CHECK( SQLITE_DONE == sqlite3_step(stmt_src) );
-                sqlite3_reset(stmt_src);
+                DB_CHECK( SQLITE_OK == sqlite3_reset(s_stmt[SHARE_SRC]) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[SHARE_SRC], i++, fid) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[SHARE_SRC], i++, MAKE_SID(owner)) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_SRC], i++, files->complete) );
+                DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[SHARE_SRC], i++, files->rating) );
+                DB_CHECK( SQLITE_DONE == sqlite3_step(s_stmt[SHARE_SRC]) );
 
                 files++;
         }
 
-        sqlite3_finalize(stmt_upd);
-        sqlite3_finalize(stmt_ins);
-        sqlite3_finalize(stmt_src);
-
         return 0;
 
 failed:
-        if ( stmt_upd ) sqlite3_finalize(stmt_upd);
-        if ( stmt_ins ) sqlite3_finalize(stmt_ins);
-        if ( stmt_src ) sqlite3_finalize(stmt_src);
-        ED2KD_LOGERR("failed to add file to db (%s)", sqlite3_errmsg(g_db));
+        ED2KD_LOGERR("failed to add file to db (%s)", sqlite3_errmsg(s_db));
         return -1;
 }
 
 int db_remove_source( const struct client *client )
 {
-        sqlite3_stmt *stmt;
-        const char *tail;
-        static const char query[] =
-                "DELETE FROM sources WHERE sid=?";
-
-        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, MAKE_SID(client)) );
-        DB_CHECK( SQLITE_DONE == sqlite3_step(stmt) );
-        sqlite3_finalize(stmt);
+        DB_CHECK( SQLITE_OK == sqlite3_reset(s_stmt[REMOVE_SRC]) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[REMOVE_SRC], 1, MAKE_SID(client)) );
+        DB_CHECK( SQLITE_DONE == sqlite3_step(s_stmt[REMOVE_SRC]) );
         return 0;
 
 failed:
-        if ( stmt ) sqlite3_finalize(stmt);
-        ED2KD_LOGERR("failed to remove sources from db (%s)", sqlite3_errmsg(g_db));
+        ED2KD_LOGERR("failed to remove sources from db (%s)", sqlite3_errmsg(s_db));
         return -1;
 }
 
@@ -420,7 +427,7 @@ int db_search_files( struct search_node *snode, struct evbuffer *buf, size_t *co
         }
         strcat(query, " LIMIT ?");
 
-        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, strlen(query)+1, &stmt, &tail) );
+        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(s_db, query, strlen(query)+1, &stmt, &tail) );
 
         i=1;
         DB_CHECK( SQLITE_OK == sqlite3_bind_text(stmt, i++, params.name_term, params.name_len+1, SQLITE_STATIC) );
@@ -505,27 +512,23 @@ int db_search_files( struct search_node *snode, struct evbuffer *buf, size_t *co
 
 failed:
         if ( stmt ) sqlite3_finalize(stmt);
-        ED2KD_LOGERR("failed perform search query (%s)", sqlite3_errmsg(g_db));
+        ED2KD_LOGERR("failed perform search query (%s)", sqlite3_errmsg(s_db));
 
         return -1;
 }
 
 int db_get_sources( const unsigned char *hash, struct file_source *sources, uint8_t *count )
 {
-        sqlite3_stmt *stmt;
-        const char *tail;
         uint8_t i;
         int err;
-        static const char query[] =
-                "SELECT sid FROM sources WHERE fid=? LIMIT ?";
 
-        DB_CHECK( SQLITE_OK == sqlite3_prepare_v2(g_db, query, sizeof query, &stmt, &tail) );
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(stmt, 1, MAKE_FID(hash)) );
-        DB_CHECK( SQLITE_OK == sqlite3_bind_int(stmt, 2, *count) );
+        DB_CHECK( SQLITE_OK == sqlite3_reset(s_stmt[GET_SRC]) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int64(s_stmt[GET_SRC], 1, MAKE_FID(hash)) );
+        DB_CHECK( SQLITE_OK == sqlite3_bind_int(s_stmt[GET_SRC], 2, *count) );
 
         i=0;
-        while ( ((err = sqlite3_step(stmt)) == SQLITE_ROW) && (i < *count) ) {
-                uint64_t sid = sqlite3_column_int64(stmt, 0);
+        while ( ((err = sqlite3_step(s_stmt[GET_SRC])) == SQLITE_ROW) && (i < *count) ) {
+                uint64_t sid = sqlite3_column_int64(s_stmt[GET_SRC], 0);
                 sources[i].ip = GET_SID_ID(sid);
                 sources[i].port = GET_SID_PORT(sid);
                 ++i;
@@ -537,7 +540,6 @@ int db_get_sources( const unsigned char *hash, struct file_source *sources, uint
         return 0;
 
 failed:
-        if ( stmt ) sqlite3_finalize(stmt);
-        ED2KD_LOGERR("failed to remove souves from db (%s)", sqlite3_errmsg(g_db));
+        ED2KD_LOGERR("failed to get sources from db (%s)", sqlite3_errmsg(s_db));
         return -1;
 }
