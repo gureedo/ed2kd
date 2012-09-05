@@ -4,10 +4,9 @@
 #define CLIENT_H
 
 #include <stdint.h>
-#include "job.h"
 #include <pthread.h>
-#include <atomic_ops.h>
 #include "uthash.h"
+#include "atomic.h"
 
 struct search_node;
 struct shared_file_entry;
@@ -56,14 +55,12 @@ struct client {
         /* status notify timer */
         struct event *evtimer_status_notify;
 
-        /* local job queue access mutex */
-        pthread_mutex_t job_mutex;
-        /* pending events count */
-        volatile AO_t pending_evcnt;
-        /* scheduled deletion flag */
-        unsigned sched_del:1;
-        /* local job queue */
-        struct job_queue jqueue;
+        /* lock flag */
+        volatile atomic32_t locked;
+        /* references counter */
+        volatile atomic32_t ref_cnt;
+        /* marked for remove flag */
+        volatile atomic32_t deleted;
 
 #ifdef DEBUG
         /* for debugging only */
@@ -80,9 +77,18 @@ struct client {
 */
 struct client *client_new();
 
-void client_schedule_delete( struct client *clnt );
-
 void client_delete( struct client *clnt );
+
+static __inline void client_addref( struct client *clnt )
+{
+        atomic_inc(&clnt->ref_cnt);
+}
+
+static __inline void client_decref( struct client *clnt )
+{
+        if ( atomic_dec(&clnt->ref_cnt) == 1 )
+                client_delete(clnt);
+}
 
 void client_portcheck_start( struct client *client );
 

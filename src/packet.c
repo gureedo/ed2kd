@@ -1,6 +1,7 @@
 #include "packet.h"
 #include <math.h>       /* floor */
 #include <string.h>     /* memcpy */
+#include <malloc.h>     /* alloca */
 
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
@@ -41,8 +42,8 @@ void send_server_status( struct bufferevent *bev )
         data.hdr.proto = PROTO_EDONKEY;
         data.hdr.length = sizeof(data) - sizeof(data.hdr);
         data.opcode = OP_SERVERSTATUS;
-        data.user_count = AO_load(&g_instance.user_count);
-        data.file_count = AO_load(&g_instance.file_count);
+        data.user_count = atomic_load(&g_instance.user_count);
+        data.file_count = atomic_load(&g_instance.file_count);
 
         bufferevent_write(bev, &data, sizeof(data));
 }

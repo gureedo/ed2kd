@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include "job.h"
 #include <pthread.h>
-#include <atomic_ops.h>
+#include "atomic.h"
 
 struct event_base;
 struct evconnlistener;
@@ -72,8 +72,10 @@ struct server_config
 };
 
 struct server_instance {
-        /* event base */
-        struct event_base *evbase;
+        /* general event base */
+        struct event_base *evbase_tcp;
+        /* login event base */
+        struct event_base *evbase_login;
         /* tcp connection listener */
         struct evconnlistener *tcp_listener;
         /* server configuration loaded from file */
@@ -81,14 +83,14 @@ struct server_instance {
         /* working threads count */
         size_t thread_count;
         /* connected users count */
-        volatile AO_t user_count;
+        volatile atomic32_t user_count;
         /* shared files count */
-        volatile AO_t file_count;
+        volatile atomic32_t file_count;
         /* lowid counter */
-        volatile AO_t lowid_counter;
+        volatile atomic32_t lowid_counter;
 
         /* termination flag */
-        volatile AO_t terminate;
+        volatile atomic32_t terminate;
         /* job queue mutex */
         pthread_mutex_t job_mutex;
         /* job access condition */

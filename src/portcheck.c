@@ -88,7 +88,7 @@ void portcheck_read( struct client *clnt )
         input = bufferevent_get_input(clnt->bev_pc);
         src_len = evbuffer_get_length(input);
 
-        while( !clnt->sched_del && src_len > sizeof(struct packet_header) ) {
+        while( !clnt->deleted && src_len > sizeof(struct packet_header) ) {
                 unsigned char *data;
                 struct packet_buffer pb;
                 size_t packet_len;

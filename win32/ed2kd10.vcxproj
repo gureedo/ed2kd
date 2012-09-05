@@ -141,6 +141,7 @@
     <ClCompile Include="..\src\db_sqlite.c" />
     <ClCompile Include="..\src\event_callback.c" />
     <ClCompile Include="..\src\log.c" />
+    <ClCompile Include="..\src\login.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\packet.c" />
     <ClCompile Include="..\src\portcheck.c" />
@@ -149,6 +150,7 @@
     <ClCompile Include="..\src\win32\getopt_long.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\atomic.h" />
     <ClInclude Include="..\src\client.h" />
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\ed2k_proto.h" />
@@ -156,6 +158,7 @@
     <ClInclude Include="..\src\event_callback.h" />
     <ClInclude Include="..\src\job.h" />
     <ClInclude Include="..\src\log.h" />
+    <ClInclude Include="..\src\login.h" />
     <ClInclude Include="..\src\packed_struct.h" />
     <ClInclude Include="..\src\packet.h" />
     <ClInclude Include="..\src\portcheck.h" />

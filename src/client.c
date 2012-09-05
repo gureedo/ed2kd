@@ -27,14 +27,14 @@ struct shared_file_entry {
 
 static uint32_t get_next_lowid()
 {
-        AO_t old_id, new_id;
+        atomic32_t old_id, new_id;
 
         do {
-                old_id = AO_load_acquire(&g_instance.lowid_counter);
+                old_id = atomic_load(&g_instance.lowid_counter);
                 new_id = old_id + 1;
                 if ( new_id > MAX_LOWID )
                         new_id = 0;
-        } while ( !AO_compare_and_swap_release(&g_instance.lowid_counter, old_id, new_id) );
+        } while ( !atomic_cas(&g_instance.lowid_counter, new_id, old_id) );
 
         return new_id;
 }
@@ -42,61 +42,56 @@ static uint32_t get_next_lowid()
 struct client *client_new()
 {
         struct client *client = (struct client*)calloc(1, sizeof(*client));
-        pthread_mutex_init(&client->job_mutex, NULL);
-        STAILQ_INIT(&client->jqueue);
 
-        if ( AO_fetch_and_add1(&g_instance.user_count) == g_instance.cfg->max_clients ) {
+        if ( atomic_inc(&g_instance.user_count)+1 >= g_instance.cfg->max_clients ) {
                 evconnlistener_disable(g_instance.tcp_listener);
         }
 
         return client;
 }
 
-void client_schedule_delete( struct client *clnt )
-{
-        clnt->sched_del = 1;
-}
-
 void client_delete( struct client *clnt )
 {
-        struct job *j_tmp, *j;
         struct shared_file_entry *she, *she_tmp;
 
-        assert(clnt->sched_del);
-        ED2KD_LOGDBG("client removed (%s:%d)", clnt->dbg.ip_str, clnt->port);
-
-        if ( clnt->evtimer_status_notify )
-                event_free(clnt->evtimer_status_notify);
-        if( clnt->bev_pc )
-                bufferevent_free(clnt->bev_pc);
-        if( clnt->bev )
-                bufferevent_free(clnt->bev);
-        if ( clnt->file_count )
-                db_remove_source(clnt);
-
-        server_remove_client_jobs(clnt);
-
-        j = STAILQ_FIRST(&clnt->jqueue);
-        while ( j != NULL ) {
-                j_tmp = STAILQ_NEXT(j, qentry);
-                free(j);
-                j = j_tmp;
+        if ( 0 == atomic_store(&clnt->deleted, 1) ) {
+                if ( clnt->evtimer_status_notify ) {
+                        event_free(clnt->evtimer_status_notify);
+                        clnt->evtimer_status_notify = NULL;
+                }
+                if ( clnt->bev_pc ) {
+                        bufferevent_free(clnt->bev_pc);
+                        clnt->bev_pc = NULL;
+                }
+                if ( clnt->bev ) {
+                        bufferevent_free(clnt->bev);
+                        clnt->bev = NULL;
+                }
         }
 
-        HASH_ITER(hh, clnt->shared_files, she, she_tmp) {
-                HASH_DEL(clnt->shared_files, she);
-                free(she);
+        if ( 0 == atomic_load(&clnt->ref_cnt) ) {
+                ED2KD_LOGDBG("client removed (%s:%d)", clnt->dbg.ip_str, clnt->port);
+
+                if ( clnt->file_count ) {
+                        db_remove_source(clnt);
+                        clnt->file_count = 0;
+                }
+
+                HASH_ITER(hh, clnt->shared_files, she, she_tmp) {
+                        HASH_DEL(clnt->shared_files, she);
+                        free(she);
+                }
+
+                //server_remove_client_jobs(clnt);
+
+                atomic_sub(&g_instance.file_count, clnt->file_count);
+
+                if ( atomic_dec(&g_instance.user_count)-1 < g_instance.cfg->max_clients ) {
+                        evconnlistener_enable(g_instance.tcp_listener);
+                }
+
+                free(clnt);
         }
-
-        AO_fetch_and_add(&g_instance.file_count, -clnt->file_count);
-
-        if ( AO_fetch_and_sub1(&g_instance.user_count) == g_instance.cfg->max_clients ) {
-                evconnlistener_enable(g_instance.tcp_listener);
-        }
-
-        free(clnt);
-
-
 }
 
 void client_search_files( struct client *clnt, struct search_node *search_tree )
@@ -141,7 +136,7 @@ void client_portcheck_start( struct client *clnt )
         client_sa.sin_addr.s_addr = clnt->ip;
         client_sa.sin_port = htons(clnt->port);
 
-        clnt->bev_pc = bufferevent_socket_new(g_instance.evbase, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
+        clnt->bev_pc = bufferevent_socket_new(g_instance.evbase_tcp, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
         bufferevent_setcb(clnt->bev_pc, portcheck_read_cb, NULL, portcheck_event_cb, clnt);
 
         if ( bufferevent_socket_connect(clnt->bev_pc, (struct sockaddr*)&client_sa, sizeof(client_sa)) < 0 ) {
@@ -149,7 +144,7 @@ void client_portcheck_start( struct client *clnt )
                 clnt->bev_pc = NULL;
                 client_portcheck_finish(clnt, PORTCHECK_FAILED);
         } else {
-                clnt->evtimer_portcheck = evtimer_new(g_instance.evbase, portcheck_timeout_cb, clnt);
+                clnt->evtimer_portcheck = evtimer_new(g_instance.evbase_tcp, portcheck_timeout_cb, clnt);
                 evtimer_add(clnt->evtimer_portcheck, g_instance.portcheck_timeout_tv);
         }
 }
@@ -178,7 +173,7 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
                         clnt->id = get_next_lowid();
                         clnt->port = 0;
                 } else {
-                        client_schedule_delete(clnt);
+                        client_delete(clnt);
                         return;
                 }
         } else {
@@ -187,7 +182,7 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
 
         send_id_change(clnt->bev, clnt->id);
 
-        clnt->evtimer_status_notify = event_new(g_instance.evbase, -1, EV_PERSIST, server_status_notify_cb, clnt);
+        clnt->evtimer_status_notify = event_new(g_instance.evbase_tcp, -1, EV_PERSIST, tcp_status_notify_cb, clnt);
         event_add(clnt->evtimer_status_notify, g_instance.status_notify_tv);
 }
 
@@ -202,7 +197,7 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
                 return;
         }
         
-        if ( AO_load(&g_instance.file_count) > g_instance.cfg->max_files ) {
+        if ( atomic_load(&g_instance.file_count) > g_instance.cfg->max_files ) {
                 static const char msg[] = "WARNING: Server reached shared files limit";
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
@@ -229,5 +224,5 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
         ED2KD_LOGDBG("client %u: published %u files, %u duplicates", clnt->id, count, count-real_count);
 
         clnt->file_count += real_count;
-        AO_fetch_and_add(&g_instance.file_count, real_count);
+        atomic_add(&g_instance.file_count, real_count);
 }

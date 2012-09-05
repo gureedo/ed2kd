@@ -7,7 +7,6 @@
 struct client;
 
 enum job_type {
-        JOB_SERVER_ACCEPT,
         JOB_SERVER_EVENT,
         JOB_SERVER_READ,
         JOB_SERVER_STATUS_NOTIFY,
@@ -18,15 +17,8 @@ enum job_type {
 
 struct job {
         enum job_type type;
-        struct client *client;
+        struct client *clnt;
         STAILQ_ENTRY(job) qentry;
-};
-
-struct job_server_accept {
-        struct job hdr;
-        evutil_socket_t fd;
-        struct sockaddr sa;
-        int socklen;
 };
 
 struct job_event {

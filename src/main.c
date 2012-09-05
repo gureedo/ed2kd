@@ -4,10 +4,11 @@
 #include <string.h>
 #include <signal.h>
 #include <getopt.h>
+#include <malloc.h>     /* alloca */
 #if defined(_WIN32)
-#include <winsock2.h>
+#include <winsock2.h>   /* WSAStartup */
 #elif defined(__GNUC__)
-#include <alloca.h>
+#include <alloca.h>     /* alloca */
 #endif
 #include <omp.h>
 
@@ -16,14 +17,15 @@
 #include <event2/listener.h>
 #include <event2/util.h>
 
-#include "server.h"
 #include "config.h"
-#include "ed2k_proto.h"
 #include "version.h"
 #include "util.h"
 #include "log.h"
-#include "db.h"
+#include "ed2k_proto.h"
 #include "event_callback.h"
+#include "server.h"
+#include "db.h"
+#include "login.h"
 
 struct server_instance g_instance;
 
@@ -72,8 +74,6 @@ int main( int argc, char *argv[] )
 {
         int ret, opt, longIndex = 0;
         struct event *sigint_event;
-        struct sockaddr_in bind_sa;
-        int bind_sa_len;
 #ifdef _WIN32
         WSADATA WSAData;
 #endif
@@ -137,37 +137,26 @@ int main( int argc, char *argv[] )
                 return EXIT_FAILURE;
         }
 
-        g_instance.evbase = event_base_new();
-        if ( NULL == g_instance.evbase ) {
+        g_instance.evbase_tcp = event_base_new();
+        if ( NULL == g_instance.evbase_tcp ) {
                 ED2KD_LOGERR("failed to create main event loop");
                 return EXIT_FAILURE;
         }
-
-        sigint_event = evsignal_new(g_instance.evbase, SIGINT, signal_cb, NULL);
-        evsignal_add(sigint_event, NULL);
-
-        // common timers timevals
-        g_instance.portcheck_timeout_tv = event_base_init_common_timeout(g_instance.evbase, &g_instance.cfg->portcheck_timeout_tv);
-        g_instance.status_notify_tv = event_base_init_common_timeout(g_instance.evbase, &g_instance.cfg->status_notify_tv);
-
-        bind_sa_len = sizeof(bind_sa);
-        memset(&bind_sa, 0, sizeof(bind_sa));
-        ret = evutil_parse_sockaddr_port(g_instance.cfg->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
-        bind_sa.sin_port = htons(g_instance.cfg->listen_port);
-        bind_sa.sin_family = AF_INET;
-
-        g_instance.tcp_listener = evconnlistener_new_bind(g_instance.evbase,
-                server_accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
-                g_instance.cfg->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
-        if ( NULL == g_instance.tcp_listener ) {
-                int err = EVUTIL_SOCKET_ERROR();
-                ED2KD_LOGERR("failed to start listen on %s:%u, last error: %s", g_instance.cfg->listen_addr, g_instance.cfg->listen_port, evutil_socket_error_to_string(err));
+        g_instance.evbase_login = event_base_new();
+        if ( NULL == g_instance.evbase_login ) {
+                ED2KD_LOGERR("failed to create login event loop");
                 return EXIT_FAILURE;
         }
 
-        evconnlistener_set_error_cb(g_instance.tcp_listener, server_accept_error_cb);
+        sigint_event = evsignal_new(g_instance.evbase_tcp, SIGINT, signal_cb, NULL);
+        evsignal_add(sigint_event, NULL);
 
-        ED2KD_LOGNFO("start listening on %s:%u", g_instance.cfg->listen_addr, g_instance.cfg->listen_port);
+        // common timers timevals
+        g_instance.portcheck_timeout_tv = event_base_init_common_timeout(g_instance.evbase_tcp, &g_instance.cfg->portcheck_timeout_tv);
+        g_instance.status_notify_tv = event_base_init_common_timeout(g_instance.evbase_tcp, &g_instance.cfg->status_notify_tv);
+
+        if ( start_login_thread() < 0 )
+                return EXIT_FAILURE;
 
         if ( db_create() < 0 ) {
                 ED2KD_LOGERR("failed to create database");
@@ -189,7 +178,7 @@ int main( int argc, char *argv[] )
                         pthread_create(&threads[i], NULL, server_job_worker, NULL);
                 }
 
-                ret = event_base_dispatch(g_instance.evbase);
+                ret = event_base_dispatch(g_instance.evbase_tcp);
                 if ( ret < 0 ) {
                         ED2KD_LOGERR("main dispatch loop finished with error");
                 }
@@ -201,7 +190,7 @@ int main( int argc, char *argv[] )
                         ED2KD_LOGERR("failed to close database");
                 }
 
-                AO_store(&g_instance.terminate, 1);
+                atomic_store(&g_instance.terminate, 1);
 
                 while ( EBUSY == pthread_cond_destroy(&g_instance.job_cond) ) {
                         pthread_cond_broadcast(&g_instance.job_cond);
@@ -217,7 +206,7 @@ int main( int argc, char *argv[] )
 
         evconnlistener_free(g_instance.tcp_listener);
         event_free(sigint_event);
-        event_base_free(g_instance.evbase);
+        event_base_free(g_instance.evbase_tcp);
 
         if ( db_destroy() < 0 ) {
                 ED2KD_LOGERR("failed to destroy database");

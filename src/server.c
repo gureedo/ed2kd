@@ -1,4 +1,6 @@
 #include "server.h"
+#include <assert.h>
+#include <malloc.h>
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
@@ -15,37 +17,11 @@
 
 void server_add_job( struct job *job )
 {
-        int added = 0;
-
-        if ( job->client ) {
-                pthread_mutex_lock(&job->client->job_mutex);
-                if ( AO_load_acquire(&job->client->pending_evcnt) ) {
-                        STAILQ_INSERT_TAIL(&job->client->jqueue, job, qentry);
-                        added = 1;
-                }
-                AO_fetch_and_add1_release(&job->client->pending_evcnt);
-                pthread_mutex_unlock(&job->client->job_mutex);
-        }
-        
-        if ( !added ) {
-                pthread_mutex_lock(&g_instance.job_mutex);
-                STAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
-                pthread_mutex_unlock(&g_instance.job_mutex);
-                pthread_cond_signal(&g_instance.job_cond);
-        }
-}
-
-void server_remove_client_jobs( const struct client *clnt )
-{
-        struct job *j, *j_tmp;
         pthread_mutex_lock(&g_instance.job_mutex);
-        STAILQ_FOREACH_SAFE( j, &g_instance.jqueue, qentry, j_tmp ) {
-                if ( clnt == j->client ) {
-                        STAILQ_REMOVE_AFTER(&g_instance.jqueue, j, qentry);
-                        free(j);
-                }
-        }
+        client_addref(job->clnt);
+        STAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
         pthread_mutex_unlock(&g_instance.job_mutex);
+        pthread_cond_signal(&g_instance.job_cond);
 }
 
 static int process_login_request( struct packet_buffer *pb, struct client *clnt )
@@ -382,7 +358,7 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
                 return 0;
 
         case OP_DISCONNECT:
-                client_schedule_delete(clnt);
+                client_delete(clnt);
                 return 0;
 
         case OP_GETSOURCES:
@@ -413,7 +389,7 @@ static void server_read( struct client *clnt )
         struct evbuffer *input = bufferevent_get_input(clnt->bev);
         size_t src_len = evbuffer_get_length(input);
 
-        while( !clnt->sched_del && src_len > sizeof(struct packet_header) ) {
+        while( !clnt->deleted && src_len > sizeof(struct packet_header) ) {
                 unsigned char *data;
                 struct packet_buffer pb;
                 size_t packet_len;
@@ -423,7 +399,7 @@ static void server_read( struct client *clnt )
 
                 if  ( (PROTO_PACKED != header->proto) && (PROTO_EDONKEY != header->proto) ) {
                         ED2KD_LOGDBG("unknown packet protocol from %s:%u", clnt->dbg.ip_str, clnt->port);
-                        client_schedule_delete(clnt);
+                        client_delete(clnt);
                         return;
                 }
 
@@ -457,7 +433,7 @@ static void server_read( struct client *clnt )
 
                 if (  ret < 0 ) {
                         ED2KD_LOGDBG("server packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
-                        client_schedule_delete(clnt);
+                        client_delete(clnt);
                         return;
                 }
 
@@ -470,44 +446,8 @@ static void server_event( struct client *clnt, short events )
 {
         if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
                 ED2KD_LOGDBG("got EOF or error from %s:%u", clnt->dbg.ip_str, clnt->port);
-                client_schedule_delete(clnt);
+                client_delete(clnt);
         }
-}
-
-static void server_accept( evutil_socket_t fd, struct sockaddr *sa, int socklen )
-{
-        struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
-        struct client *clnt;
-        struct bufferevent *bev;
-
-        assert(sizeof(struct sockaddr_in) == socklen);
-
-        // todo: limit total client count
-        // todo: limit connections from same ip
-        // todo: block banned ips
-
-        clnt = client_new();
-
-        bev = bufferevent_socket_new(g_instance.evbase, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
-        clnt->bev = bev;
-        clnt->ip = peer_sa->sin_addr.s_addr;
-
-#ifdef DEBUG
-        evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof clnt->dbg.ip_str);
-        ED2KD_LOGDBG("client connected (%s)", clnt->dbg.ip_str);
-#endif
-
-        bufferevent_setcb(clnt->bev, server_read_cb, NULL, server_event_cb, clnt);
-        bufferevent_enable(clnt->bev, EV_READ|EV_WRITE);
-
-        send_server_message(clnt->bev, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
-
-        if ( !g_instance.cfg->allow_lowid ) {
-                static const char msg_highid[] = "WARNING: Only HighID clients!";
-                send_server_message(clnt->bev, msg_highid, sizeof(msg_highid) - 1);
-        }
-
-        // todo: set timeout for op_login
 }
 
 void* server_job_worker( void *ctx )
@@ -519,94 +459,77 @@ void* server_job_worker( void *ctx )
                 return NULL;
         }
 
-
         for(;;) {
-                struct client *clnt;
                 struct job *job;
 
                 pthread_mutex_lock(&g_instance.job_mutex);
-                while ( !AO_load(&g_instance.terminate) && STAILQ_EMPTY(&g_instance.jqueue) ) {
+                for(;;) {
+                        struct job *job_tmp;
+
                         pthread_cond_wait(&g_instance.job_cond, &g_instance.job_mutex);
-                }
+                        
+                        if ( atomic_load(&g_instance.terminate) ) {
+                                pthread_mutex_unlock(&g_instance.job_mutex);
+                                goto exit;
+                        }
 
-                if ( AO_load(&g_instance.terminate) ) {
-                        pthread_mutex_unlock(&g_instance.job_mutex);
-                        break;
-                } else {
-                        job = STAILQ_FIRST(&g_instance.jqueue);
-                        STAILQ_REMOVE_HEAD(&g_instance.jqueue, qentry);
+                        STAILQ_FOREACH_SAFE( job, &g_instance.jqueue, qentry, job_tmp ) {
+                                if ( atomic_cas(&job->clnt->locked, 1, 0) ) {
+                                        STAILQ_REMOVE_AFTER(&g_instance.jqueue, job, qentry);
+                                        break;
+                                }
+                        }
                 }
-
-                clnt = job->client;
 
                 pthread_mutex_unlock(&g_instance.job_mutex);
 
-                while ( job ) {
+                if ( !atomic_load(&job->clnt->deleted) ) {
                         switch( job->type ) {
-
-                        case JOB_SERVER_ACCEPT: {
-                                struct job_server_accept *j = (struct job_server_accept*)job;
-                                //ED2KD_LOGDBG("JOB_SERVER_ACCEPT event");
-                                server_accept(j->fd, &j->sa, j->socklen);
-                                break;
-                                                }
 
                         case JOB_SERVER_EVENT: {
                                 struct job_event *j = (struct job_event*)job;
                                 //ED2KD_LOGDBG("JOB_SERVER_EVENT event");
-                                server_event(clnt, j->events);
+                                server_event(job->clnt, j->events);
                                 break;
-                                               }
+                        }
 
                         case JOB_SERVER_READ:
                                 //ED2KD_LOGDBG("JOB_SERVER_READ event");
-                                server_read(clnt);
+                                server_read(job->clnt);
                                 break;
 
                         case JOB_SERVER_STATUS_NOTIFY:
                                 //ED2KD_LOGDBG("JOB_SERVER_STATUS_NOTIFY event");
-                                send_server_status(clnt->bev);
+                                send_server_status(job->clnt->bev);
                                 break;
 
                         case JOB_PORTCHECK_EVENT: {
                                 struct job_event *j = (struct job_event*)job;
                                 //ED2KD_LOGDBG("JOB_PORTCHECK_EVENT event");
-                                portcheck_event(clnt, j->events);
+                                portcheck_event(job->clnt, j->events);
                                 break;
-                                                  }
+                        }
 
                         case JOB_PORTCHECK_READ:
                                 //ED2KD_LOGDBG("JOB_PORTCHECK_READ event");
-                                portcheck_read(clnt);
+                                portcheck_read(job->clnt);
                                 break;
 
                         case JOB_PORTCHECK_TIMEOUT:
-                                portcheck_timeout(clnt);
+                                portcheck_timeout(job->clnt);
                                 break;
                         default:
                                 assert(0);
                                 break;
                         }
-
-                        free(job);
-                        job = NULL;
-
-                        if ( clnt ) {
-                                if ( clnt->sched_del ) {
-                                        client_delete(clnt);
-                                } else {
-                                        pthread_mutex_lock(&clnt->job_mutex);
-                                        AO_fetch_and_sub1(&clnt->pending_evcnt);
-                                        if ( !STAILQ_EMPTY(&clnt->jqueue) ) {
-                                                job = STAILQ_FIRST(&clnt->jqueue);
-                                                STAILQ_REMOVE_HEAD(&clnt->jqueue, qentry);
-                                        }
-                                        pthread_mutex_unlock(&clnt->job_mutex);
-                                }
-                        }
                 }
+
+                free(job);
+                atomic_store(&job->clnt->locked, 0);
+                client_decref(job->clnt);
         }
 
+exit:
         if ( db_close() < 0 ) {
                 ED2KD_LOGERR("failed to close database");
         }
