@@ -30,19 +30,12 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
         clnt->ip = peer_sa->sin_addr.s_addr;
 
 #ifdef DEBUG
-        evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof clnt->dbg.ip_str);
-        ED2KD_LOGDBG("client connected (%s)", clnt->dbg.ip_str);
+        evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof(clnt->dbg.ip_str));
+        ED2KD_LOGDBG("connected ip:%s", clnt->dbg.ip_str);
 #endif
 
-        bufferevent_setcb(clnt->bev, tcp_read_cb, NULL, tcp_event_cb, clnt);
+        bufferevent_setcb(clnt->bev, server_read_cb, NULL, server_event_cb, clnt);
         bufferevent_enable(clnt->bev, EV_READ|EV_WRITE);
-
-        send_server_message(clnt->bev, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
-
-        if ( !g_instance.cfg->allow_lowid ) {
-                static const char msg_highid[] = "WARNING: Only HighID clients!";
-                send_server_message(clnt->bev, msg_highid, sizeof(msg_highid) - 1);
-        }
 
         // todo: set timeout for op_login
 }
@@ -56,28 +49,12 @@ static void accept_error_cb( struct evconnlistener *listener, void *ctx )
         ED2KD_LOGERR("error %d (%s) on the tcp listener, terminating...", \
                 err, evutil_socket_error_to_string(err));
 
-        event_base_loopexit(g_instance.evbase_tcp, NULL);
+        server_stop();
 }
 
-static void *login_worker( void *ctx )
+int server_listen( void )
 {
         int ret;
-
-        ret = event_base_dispatch(g_instance.evbase_login);
-        if ( ret < 0 ) {
-                ED2KD_LOGERR("login loop finished with error");
-        }
-        else if ( 0 == ret ) {
-                ED2KD_LOGWRN("no active events in login loop");
-        }
-
-        return NULL;
-}
-
-int start_login_thread( void )
-{
-        int ret;
-        pthread_t thread;
         struct sockaddr_in bind_sa;
         int bind_sa_len;
 
@@ -86,12 +63,12 @@ int start_login_thread( void )
         ret = evutil_parse_sockaddr_port(g_instance.cfg->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
         if ( ret < 0 ) {
                 ED2KD_LOGERR("failed to parse listen addr '%s'", g_instance.cfg->listen_addr);
-                return EXIT_FAILURE;
+                return -1;
         }
         bind_sa.sin_port = htons(g_instance.cfg->listen_port);
         bind_sa.sin_family = AF_INET;
 
-        g_instance.tcp_listener = evconnlistener_new_bind(g_instance.evbase_login,
+        g_instance.tcp_listener = evconnlistener_new_bind(g_instance.evbase_main,
                 accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
                 g_instance.cfg->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
         if ( NULL == g_instance.tcp_listener ) {
@@ -104,7 +81,9 @@ int start_login_thread( void )
 
         ED2KD_LOGNFO("start listening on %s:%u", g_instance.cfg->listen_addr, g_instance.cfg->listen_port);
 
-        pthread_create(&thread, NULL, login_worker, NULL);
+        ret = event_base_dispatch(g_instance.evbase_main);
+        if ( ret < 0 )
+                ED2KD_LOGERR("main loop finished with error");
 
         return 0;
 }

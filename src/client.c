@@ -55,9 +55,24 @@ void client_delete( struct client *clnt )
         struct shared_file_entry *she, *she_tmp;
 
         if ( 0 == atomic_store(&clnt->deleted, 1) ) {
+                // disable all events
+                if ( clnt->bev )
+                        bufferevent_disable(clnt->bev, EV_READ|EV_WRITE);
+                if ( clnt->bev_pc )
+                        bufferevent_disable(clnt->bev_pc, EV_READ|EV_WRITE);
+                if ( clnt->evtimer_status_notify )
+                        event_del(clnt->evtimer_status_notify);
+                if ( clnt->evtimer_portcheck )
+                        event_del(clnt->evtimer_portcheck);
+
+                // delete all events
                 if ( clnt->evtimer_status_notify ) {
                         event_free(clnt->evtimer_status_notify);
                         clnt->evtimer_status_notify = NULL;
+                }
+                if ( clnt->evtimer_portcheck ) {
+                        event_free(clnt->evtimer_portcheck);
+                        clnt->evtimer_portcheck = NULL;
                 }
                 if ( clnt->bev_pc ) {
                         bufferevent_free(clnt->bev_pc);
@@ -67,9 +82,7 @@ void client_delete( struct client *clnt )
                         bufferevent_free(clnt->bev);
                         clnt->bev = NULL;
                 }
-        }
 
-        if ( 0 == atomic_load(&clnt->ref_cnt) ) {
                 ED2KD_LOGDBG("client removed (%s:%d)", clnt->dbg.ip_str, clnt->port);
 
                 if ( clnt->file_count ) {
@@ -82,14 +95,14 @@ void client_delete( struct client *clnt )
                         free(she);
                 }
 
-                //server_remove_client_jobs(clnt);
-
                 atomic_sub(&g_instance.file_count, clnt->file_count);
 
                 if ( atomic_dec(&g_instance.user_count)-1 < g_instance.cfg->max_clients ) {
                         evconnlistener_enable(g_instance.tcp_listener);
                 }
+        }
 
+        if ( 0 == atomic_load(&clnt->ref_cnt) ) {
                 free(clnt);
         }
 }
@@ -182,7 +195,7 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
 
         send_id_change(clnt->bev, clnt->id);
 
-        clnt->evtimer_status_notify = event_new(g_instance.evbase_tcp, -1, EV_PERSIST, tcp_status_notify_cb, clnt);
+        clnt->evtimer_status_notify = evtimer_new(g_instance.evbase_tcp, server_status_notify_cb, clnt);
         event_add(clnt->evtimer_status_notify, g_instance.status_notify_tv);
 }
 

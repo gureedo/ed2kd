@@ -139,9 +139,9 @@
     <ClCompile Include="..\src\client.c" />
     <ClCompile Include="..\src\config.c" />
     <ClCompile Include="..\src\db_sqlite.c" />
-    <ClCompile Include="..\src\event_callback.c" />
+    <ClCompile Include="..\src\job.c" />
     <ClCompile Include="..\src\log.c" />
-    <ClCompile Include="..\src\login.c" />
+    <ClCompile Include="..\src\server_listener.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\packet.c" />
     <ClCompile Include="..\src\portcheck.c" />
@@ -155,13 +155,12 @@
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\ed2k_proto.h" />
     <ClInclude Include="..\src\db.h" />
-    <ClInclude Include="..\src\event_callback.h" />
     <ClInclude Include="..\src\job.h" />
     <ClInclude Include="..\src\log.h" />
-    <ClInclude Include="..\src\login.h" />
     <ClInclude Include="..\src\packed_struct.h" />
     <ClInclude Include="..\src\packet.h" />
     <ClInclude Include="..\src\portcheck.h" />
+    <ClInclude Include="..\src\queue.h" />
     <ClInclude Include="..\src\server.h" />
     <ClInclude Include="..\src\uthash.h" />
     <ClInclude Include="..\src\util.h" />

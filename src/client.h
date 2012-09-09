@@ -86,7 +86,7 @@ static __inline void client_addref( struct client *clnt )
 
 static __inline void client_decref( struct client *clnt )
 {
-        if ( atomic_dec(&clnt->ref_cnt) == 1 )
+        if ( !atomic_dec(&clnt->ref_cnt) && atomic_load(&clnt->deleted) )
                 client_delete(clnt);
 }
 

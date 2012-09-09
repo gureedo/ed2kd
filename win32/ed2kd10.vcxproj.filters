@@ -48,13 +48,13 @@
     <ClCompile Include="..\src\server.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\event_callback.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\packet.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\login.c">
+    <ClCompile Include="..\src\server_listener.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\job.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -92,9 +92,6 @@
     <ClInclude Include="..\src\server.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\event_callback.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\job.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -104,10 +101,10 @@
     <ClInclude Include="..\src\packet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\login.h">
+    <ClInclude Include="..\src\atomic.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\atomic.h">
+    <ClInclude Include="..\src\queue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

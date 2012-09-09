@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef ED2K_PROTO_H
 #define ED2K_PROTO_H
 

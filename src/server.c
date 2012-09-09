@@ -15,11 +15,28 @@
 #include "util.h"
 #include "event_callback.h"
 
+
+void *server_base_worker( void * arg )
+{
+        // todo: after moving to libevent 2.1.x replace this with EVLOOP_NO_EXIT_ON_EMPTY flag
+
+        struct event_base *evbase = (struct event_base *)arg;
+        struct timeval tv = {500, 0};
+        struct event *ev_dummy = event_new(evbase, 0, EV_PERSIST, 0, 0);
+        event_add(ev_dummy, &tv);
+
+        if ( event_base_dispatch(evbase) < 0 )
+                ED2KD_LOGERR("loop finished with error");
+
+        event_free(ev_dummy);
+        return NULL;
+}
+
 void server_add_job( struct job *job )
 {
         pthread_mutex_lock(&g_instance.job_mutex);
         client_addref(job->clnt);
-        STAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
+        TAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
         pthread_mutex_unlock(&g_instance.job_mutex);
         pthread_cond_signal(&g_instance.job_cond);
 }
@@ -341,6 +358,11 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
 
         switch ( opcode ) {
         case OP_LOGINREQUEST:
+                send_server_message(clnt->bev, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
+                if ( !g_instance.cfg->allow_lowid ) {
+                        static const char msg_highid[] = "WARNING: Only HighID clients!";
+                        send_server_message(clnt->bev, msg_highid, sizeof(msg_highid) - 1);
+                }
                 PB_CHECK( process_login_request(pb, clnt) >= 0 );
                 return 0;
 
@@ -460,25 +482,29 @@ void* server_job_worker( void *ctx )
         }
 
         for(;;) {
-                struct job *job;
+                struct job *job = 0;
 
                 pthread_mutex_lock(&g_instance.job_mutex);
                 for(;;) {
-                        struct job *job_tmp;
+                        struct job *j, *jtmp;
 
-                        pthread_cond_wait(&g_instance.job_cond, &g_instance.job_mutex);
-                        
                         if ( atomic_load(&g_instance.terminate) ) {
                                 pthread_mutex_unlock(&g_instance.job_mutex);
                                 goto exit;
                         }
 
-                        STAILQ_FOREACH_SAFE( job, &g_instance.jqueue, qentry, job_tmp ) {
-                                if ( atomic_cas(&job->clnt->locked, 1, 0) ) {
-                                        STAILQ_REMOVE_AFTER(&g_instance.jqueue, job, qentry);
+                        TAILQ_FOREACH_SAFE( j, &g_instance.jqueue, qentry, jtmp ) {
+                                if ( atomic_cas(&j->clnt->locked, 1, 0) ) {
+                                        TAILQ_REMOVE(&g_instance.jqueue, j, qentry);
+                                        job = j;
                                         break;
                                 }
                         }
+
+                        if ( job )
+                                break;
+
+                        pthread_cond_wait(&g_instance.job_cond, &g_instance.job_mutex);
                 }
 
                 pthread_mutex_unlock(&g_instance.job_mutex);
@@ -501,6 +527,7 @@ void* server_job_worker( void *ctx )
                         case JOB_SERVER_STATUS_NOTIFY:
                                 //ED2KD_LOGDBG("JOB_SERVER_STATUS_NOTIFY event");
                                 send_server_status(job->clnt->bev);
+                                event_add(job->clnt->evtimer_status_notify, g_instance.status_notify_tv);
                                 break;
 
                         case JOB_PORTCHECK_EVENT: {
@@ -524,9 +551,9 @@ void* server_job_worker( void *ctx )
                         }
                 }
 
-                free(job);
                 atomic_store(&job->clnt->locked, 0);
                 client_decref(job->clnt);
+                free(job);
         }
 
 exit:
@@ -535,4 +562,11 @@ exit:
         }
 
         return NULL;
+}
+
+void server_stop()
+{
+        event_base_loopbreak(g_instance.evbase_main);
+        event_base_loopbreak(g_instance.evbase_tcp);
+        atomic_store(&g_instance.terminate, 1);
 }

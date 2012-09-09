@@ -8,17 +8,9 @@
 #include "client.h"
 #include "log.h"
 
-void signal_cb( evutil_socket_t fd, short what, void *ctx )
-{
-        (void)fd;
-        (void)what;
-        (void)ctx;
-        ED2KD_LOGNFO("caught SIGINT, terminating...");
-        event_base_loopexit(g_instance.evbase_login, NULL);
-        event_base_loopexit(g_instance.evbase_tcp, NULL);
-}
 
-void tcp_read_cb( struct bufferevent *bev, void *ctx )
+
+void server_read_cb( struct bufferevent *bev, void *ctx )
 {
         struct job *job = (struct job *)calloc(1, sizeof *job);
         (void)bev;
@@ -29,7 +21,7 @@ void tcp_read_cb( struct bufferevent *bev, void *ctx )
         server_add_job(job);
 }
 
-void tcp_event_cb( struct bufferevent *bev, short events, void *ctx )
+void server_event_cb( struct bufferevent *bev, short events, void *ctx )
 {
 
         struct job_event *job = (struct job_event*)calloc(1, sizeof *job);
@@ -42,7 +34,7 @@ void tcp_event_cb( struct bufferevent *bev, short events, void *ctx )
         server_add_job((struct job*)job);
 }
 
-void tcp_status_notify_cb( evutil_socket_t fd, short events, void *ctx )
+void server_status_notify_cb( evutil_socket_t fd, short events, void *ctx )
 {
         struct job *job = (struct job*)calloc(1, sizeof(*job));
         (void)fd;

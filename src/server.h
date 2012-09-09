@@ -8,8 +8,13 @@
 */
 
 #include <stdint.h>
-#include "job.h"
 #include <pthread.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <sys/time.h>
+#endif
+#include "job.h"
 #include "atomic.h"
 
 struct event_base;
@@ -75,7 +80,7 @@ struct server_instance {
         /* general event base */
         struct event_base *evbase_tcp;
         /* login event base */
-        struct event_base *evbase_login;
+        struct event_base *evbase_main;
         /* tcp connection listener */
         struct evconnlistener *tcp_listener;
         /* server configuration loaded from file */
@@ -106,10 +111,27 @@ struct server_instance {
 
 extern struct server_instance g_instance;
 
-void server_add_job( struct job *job );
+/**
+  @brief start main loop and accept incoming connections
+  @return -1 on error, 0 on success
+*/
+int server_listen();
 
+/**
+  @brief breaks all running event loops
+*/
+void server_stop();
+
+/**
+*/
+void *server_base_worker( void *arg );
+
+/**
+*/
 void *server_job_worker( void *ctx );
 
-void server_remove_client_jobs( const struct client *clnt );
+/**
+*/
+void server_add_job( struct job *job );
 
 #endif // SERVER_H
