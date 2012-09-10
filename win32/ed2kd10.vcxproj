@@ -146,6 +146,7 @@
     <ClCompile Include="..\src\packet.c" />
     <ClCompile Include="..\src\portcheck.c" />
     <ClCompile Include="..\src\server.c" />
+    <ClCompile Include="..\src\sqlite3\sqlite3.c" />
     <ClCompile Include="..\src\util.c" />
     <ClCompile Include="..\src\win32\getopt_long.c" />
   </ItemGroup>

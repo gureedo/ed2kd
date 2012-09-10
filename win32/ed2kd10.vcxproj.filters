@@ -57,6 +57,9 @@
     <ClCompile Include="..\src\job.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\sqlite3\sqlite3.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\client.h">
