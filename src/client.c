@@ -12,7 +12,6 @@
 #include "ed2k_proto.h"
 #include "server.h"
 #include "packet.h"
-#include "event_callback.h"
 #include "version.h"
 #include "log.h"
 #include "db.h"
@@ -209,7 +208,7 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
         }
-        
+
         if ( atomic_load(&g_instance.file_count) > g_instance.cfg->max_files ) {
                 static const char msg[] = "WARNING: Server reached shared files limit";
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);

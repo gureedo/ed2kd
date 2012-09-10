@@ -2,17 +2,12 @@
 #include <string.h>
 #include <malloc.h>
 
-#include <sqlite3.h>
-
+#include "sqlite3/sqlite3.h"
 #include "ed2k_proto.h"
 #include "packet.h"
 #include "log.h"
 #include "client.h"
 #include "util.h"
-
-#ifdef _MSC_VER
-#pragma comment(lib, "sqlite10.lib")
-#endif
 
 static uint64_t
         sdbm( const unsigned char *str, size_t length )

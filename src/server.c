@@ -13,7 +13,6 @@
 #include "db.h"
 #include "log.h"
 #include "util.h"
-#include "event_callback.h"
 
 
 static void dummy_cb( evutil_socket_t fd, short what, void *ctx )

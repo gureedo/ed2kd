@@ -1,13 +1,14 @@
 #include "login.h"
 #include <assert.h>
+#include <errno.h>
 #include <pthread.h>
+
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
 
 #include "server.h"
 #include "log.h"
-#include "event_callback.h"
 #include "client.h"
 #include "packet.h"
 
@@ -16,6 +17,9 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
         struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
         struct client *clnt;
         struct bufferevent *bev;
+
+        (void)listener;
+        (void)ctx;
 
         assert(sizeof(struct sockaddr_in) == socklen);
 

@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7)
 PROJECT(ed2kd C)
 
-OPTION(BACKEND_DB "Database backend" OFF)
+OPTION(BACKEND "Backend database" OFF)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
     ${CMAKE_SOURCE_DIR}/cmake/modules)
@@ -14,15 +14,24 @@ SET(INCLUDES ${LIBEVENT_INCLUDE_DIRS} ${LIBCONFIG_INCLUDE_DIRS} ${ZLIB_INCLUDE_D
 
 SET(LIBS ${LIBCONFIG_LIBRARIES} ${LIBEVENT_LIBRARIES} ${ZLIB_LIBRARIES} )
 
-SET(SOURCES src/client.c src/config.c src/event_callback.c src/server.c src/log.c src/main.c src/portcheck.c src/util.c src/packet.c)
+SET(SOURCES
+    src/client.c
+    src/config.c
+    src/job.c
+    src/log.c
+    src/main.c
+    src/packet.c
+    src/portcheck.c
+    src/server.c
+    src/server_listener.c
+    src/util.c
+)
 
-IF( ${BACKEND_DB} STREQUAL "sqlite3" )
-    FIND_PACKAGE(SQLite3 3.7.13 REQUIRED)
-    LIST(APPEND INCLUDES ${SQLITE3_INCLUDE_DIRS})
-    LIST(APPEND LIBS ${SQLITE3_LIBRARIES})
-    LIST(APPEND SOURCES src/db_sqlite.c)
+IF( ${BACKEND} STREQUAL "sqlite3" )
+    LIST(APPEND SOURCES src/sqlite3/sqlite3.c src/db_sqlite.c)
+    ADD_DEFINITIONS(-DSQLITE_THREADSAFE=1 -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_FTS4_UNICODE61 -DSQLITE_OMIT_LOAD_EXTENSION)
 
-ELSEIF( ${BACKEND_DB} STREQUAL "mysql" )
+ELSEIF( ${BACKEND} STREQUAL "mysql" )
     MESSAGE(FATAL_ERROR "Not yet implemented")
 
 ELSE()

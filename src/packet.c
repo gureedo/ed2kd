@@ -2,6 +2,9 @@
 #include <math.h>       /* floor */
 #include <string.h>     /* memcpy */
 #include <malloc.h>     /* alloca */
+#ifdef __GNUC__
+#include <alloca.h>     /* alloca */
+#endif
 
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>

@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 #include <signal.h>
 #include <getopt.h>
@@ -193,7 +195,7 @@ void send_login_request( struct ebclient *clnt )
     memcpy(data.hash, clnt->hash, sizeof(data.hash));
     data.id = 0;
     data.port = 0; // port listening no implemented
-    data.tag_count = 4;    
+    data.tag_count = 4;
 
     // nick
     data.tag_nick.hdr.type = TT_STRING;
@@ -276,7 +278,7 @@ void send_offer_files( struct ebclient *clnt )
     }
 
     ph = (struct packet_header*)evbuffer_pullup(buf, sizeof(*ph));
-    ph->length = evbuffer_get_length(buf) - sizeof(*ph); 
+    ph->length = evbuffer_get_length(buf) - sizeof(*ph);
 
     bufferevent_write_buffer(clnt->bev, buf);
     evbuffer_free(buf);
@@ -285,6 +287,8 @@ void send_offer_files( struct ebclient *clnt )
 void timer_cb( evutil_socket_t fd, short what, void *ctx )
 {
     struct ebclient *clnt = (struct ebclient *)ctx;
+    (void)fd;
+    (void)what;
 
     if ( g_eb.action_cnt && g_eb.repeat_cnt ) {
         switch( g_eb.actions[ rand() % g_eb.action_cnt ] ) {
@@ -313,6 +317,7 @@ void timer_cb( evutil_socket_t fd, short what, void *ctx )
 int process_id_change( struct packet_buffer *pb, struct ebclient *clnt )
 {
     uint32_t tcp_flags;
+    (void)tcp_flags;
 
     PB_READ_UINT32(pb, clnt->id);
     PB_READ_UINT32(pb, tcp_flags);
@@ -338,7 +343,7 @@ int process_packet( struct packet_buffer *pb, uint8_t opcode, struct ebclient *c
 
     case OP_SERVERSTATUS:
         return 0;
-    
+
     case OP_SERVERIDENT:
         return 0;
 
@@ -346,7 +351,7 @@ int process_packet( struct packet_buffer *pb, uint8_t opcode, struct ebclient *c
 
     case OP_SEARCHRESULT:
         return 0;
-    
+
     case OP_DISCONNECT:
         return 0;
 
@@ -382,13 +387,13 @@ void read_cb( struct bufferevent *bev, void *ctx )
         }
 
         // wait for full length packet
-        packet_len = ph->length + sizeof *ph;
+        packet_len = ph->length + sizeof(*ph);
         if ( packet_len > src_len )
             return;
 
         data = evbuffer_pullup(input, packet_len);
         ph = (struct packet_header*)data;
-        data += sizeof *ph;
+        data += sizeof(*ph);
 
         if ( PROTO_PACKED == ph->proto ) {
             unsigned long unpacked_len = MAX_UNCOMPRESSED_PACKET_SIZE;
@@ -409,7 +414,7 @@ void read_cb( struct bufferevent *bev, void *ctx )
         }
 
         if (  ret < 0 ) {
-            printf("%d# packet parsing error (opcode:%c)\n", clnt->idx, data+1);
+            printf("%d# packet parsing error (opcode:%c)\n", clnt->idx, *(data+1));
             // close and remove client
         }
 
@@ -421,6 +426,7 @@ void read_cb( struct bufferevent *bev, void *ctx )
 void event_cb( struct bufferevent *bev, short events, void *ctx )
 {
     struct ebclient *clnt = (struct ebclient*)ctx;
+    (void)bev;
 
     if ( events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) ) {
         if ( !clnt->connected ) {
@@ -438,6 +444,9 @@ void event_cb( struct bufferevent *bev, short events, void *ctx )
 void spawn_cb( evutil_socket_t fd, short what, void *ctx )
 {
     static int idx = 0;
+    (void)fd;
+    (void)what;
+    (void)ctx;
 
     if ( g_eb.client_cnt > 0 ) {
         struct bufferevent *bev;
@@ -467,6 +476,10 @@ void spawn_cb( evutil_socket_t fd, short what, void *ctx )
 
 void signal_cb( evutil_socket_t fd, short what, void *ctx )
 {
+    (void)fd;
+    (void)what;
+    (void)ctx;
+
     printf("caught SIGINT, terminating...\n");
     event_base_loopexit(g_eb.evbase, NULL);
 }
@@ -503,7 +516,7 @@ int main( int argc, char *argv[] )
     unsigned offer_flag=0, query_flag=0, source_flag=0;
     struct timeval tv_action = {0,0}, tv_spawn = {0,0};
     char *server_addr = NULL;
-    
+
     // parse command line arguments
     opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
     while( opt != -1 ) {
@@ -625,7 +638,7 @@ int main( int argc, char *argv[] )
     // setup common timers timeouts
     g_eb.action_pause = event_base_init_common_timeout(g_eb.evbase, &tv_action);
     g_eb.spawn_pause = event_base_init_common_timeout(g_eb.evbase, &tv_spawn);
-    
+
     // setup spawn timer
     g_eb.ev_spawn = evtimer_new(g_eb.evbase, spawn_cb, NULL);
     event_add(g_eb.ev_spawn, g_eb.spawn_pause);

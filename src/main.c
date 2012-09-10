@@ -1,7 +1,5 @@
 #include <stdlib.h>
-//#include <stdio.h>
-//#include <errno.h>
-//#include <string.h>
+#include <errno.h>
 #include <signal.h>
 #include <getopt.h>
 #if defined(_WIN32)
@@ -12,7 +10,6 @@
 #include <event2/event.h>
 #include <event2/thread.h>
 #include <event2/listener.h>
-//#include <event2/util.h>
 
 #include "config.h"
 #include "version.h"
@@ -166,7 +163,7 @@ int main( int argc, char *argv[] )
         }
 
         g_instance.thread_count = omp_get_num_procs() + 1;
-        
+
         pthread_cond_init(&g_instance.job_cond, NULL);
         pthread_mutex_init(&g_instance.job_mutex, NULL);
         TAILQ_INIT(&g_instance.jqueue);
@@ -199,7 +196,7 @@ int main( int argc, char *argv[] )
         for ( i=0; i<g_instance.thread_count; ++i ) {
                 pthread_join(job_threads[i], NULL);
         }
-        
+
         free(job_threads);
 
         // free job queue items

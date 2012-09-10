@@ -1,8 +1,0 @@
-#ifndef EVENT_CALLBACK_H
-#define EVENT_CALLBACK_H
-
-
-
-
-
-#endif // EVENT_CALLBACK_H

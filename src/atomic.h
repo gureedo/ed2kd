@@ -5,14 +5,14 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#elif !defined(__GNUC__) 
+#elif !defined(__GNUC__)
 #error "dont know how to implement atomic operations"
 #endif
 
 typedef unsigned long atomic32_t;
 
 /**
-  @brief 
+  @brief
   @param ptr pointer to atomic variable
   @return initial value
 */
@@ -21,6 +21,9 @@ static __inline atomic32_t atomic_store( volatile atomic32_t *ptr, atomic32_t va
 #ifdef _WIN32
         return InterlockedExchange(ptr, val);
 #else
+        __sync_synchronize();
+        return __sync_lock_test_and_set(ptr, val);
+
 #endif
 }
 

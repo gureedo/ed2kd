@@ -14,7 +14,6 @@
 #include "log.h"
 #include "packet.h"
 #include "ed2k_proto.h"
-#include "event_callback.h"
 
 static void send_hello( struct client *clnt )
 {
