@@ -16,13 +16,20 @@
 #include "event_callback.h"
 
 
+static void dummy_cb( evutil_socket_t fd, short what, void *ctx )
+{
+        (void)fd;
+        (void)what;
+        (void)ctx;
+}
+
 void *server_base_worker( void * arg )
 {
         // todo: after moving to libevent 2.1.x replace this with EVLOOP_NO_EXIT_ON_EMPTY flag
 
         struct event_base *evbase = (struct event_base *)arg;
         struct timeval tv = {500, 0};
-        struct event *ev_dummy = event_new(evbase, 0, EV_PERSIST, 0, 0);
+        struct event *ev_dummy = event_new(evbase, -1, EV_PERSIST, dummy_cb, 0);
         event_add(ev_dummy, &tv);
 
         if ( event_base_dispatch(evbase) < 0 )

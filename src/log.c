@@ -15,7 +15,7 @@ void _ed2kd_log( enum log_severity svrt, const char * fmt, ... )
         // todo: add loggin mutex
 
         switch ( svrt ) {
-#ifdef DEBUG
+#ifdef USE_DEBUG
         case LOG_DBG:
                 severity_str = "dbg";
                 break;

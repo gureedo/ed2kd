@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifdef DEBUG
+#ifdef USE_DEBUG
 #define DEBUG_ONLY(x) x
 #else
 #define DEBUG_ONLY(x)

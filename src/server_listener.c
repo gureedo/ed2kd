@@ -29,7 +29,7 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
         clnt->bev = bev;
         clnt->ip = peer_sa->sin_addr.s_addr;
 
-#ifdef DEBUG
+#ifdef USE_DEBUG
         evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof(clnt->dbg.ip_str));
         ED2KD_LOGDBG("connected ip:%s", clnt->dbg.ip_str);
 #endif

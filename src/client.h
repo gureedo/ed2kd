@@ -62,7 +62,7 @@ struct client {
         /* marked for remove flag */
         volatile atomic32_t deleted;
 
-#ifdef DEBUG
+#ifdef USE_DEBUG
         /* for debugging only */
         struct {
                 /* ip address string */
