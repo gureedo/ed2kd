@@ -11,8 +11,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib10", "zlib\win32\zlib10
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pthreads10", "pthreads\win32\pthreads10.vcxproj", "{0F25B59F-79A2-49CA-BDFD-E92048AA8EF8}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libatomic_ops10", "libatomic_ops\win32\libatomic_ops10.vcxproj", "{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -59,12 +57,6 @@ Global
 		{0F25B59F-79A2-49CA-BDFD-E92048AA8EF8}.Release|Win32.ActiveCfg = Release|Win32
 		{0F25B59F-79A2-49CA-BDFD-E92048AA8EF8}.Release|Win32.Build.0 = Release|Win32
 		{0F25B59F-79A2-49CA-BDFD-E92048AA8EF8}.Release|x64.ActiveCfg = Release|Win32
-		{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}.Debug|Win32.ActiveCfg = Debug|Win32
-		{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}.Debug|Win32.Build.0 = Debug|Win32
-		{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}.Debug|x64.ActiveCfg = Debug|x64
-		{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}.Release|Win32.ActiveCfg = Release|Win32
-		{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}.Release|Win32.Build.0 = Release|Win32
-		{6BA9FCF1-09AE-4AE5-887C-EC9BEDCC52C1}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
