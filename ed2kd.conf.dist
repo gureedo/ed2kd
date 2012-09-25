@@ -32,19 +32,19 @@ max_files = 100000000;
 max_files_per_client = 20000;
 
 // database server ip address
-mysql.host = "127.0.0.1";
+mysql_host = "127.0.0.1";
 
 // database server port
-mysql.port = 3306;
+mysql_port = 3306;
 
 // database schema
-mysql.schema = "";
+mysql_schema = "";
 
 // database user
-mysql.user = "";
+mysql_user = "";
 
 // database password
-mysql.password = "";
+mysql_password = "";
 
 // database unix socket path
-//mysql.unixsock = "/path/to/unix.sock";
+//mysql_unixsock = "/path/to/unix.sock";

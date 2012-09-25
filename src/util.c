@@ -81,7 +81,6 @@ uint8_t get_ed2k_file_type( const char *type, size_t len )
 
 const char *file_extension( const char *name, size_t len )
 {
-        size_t ext_len;
         const char *ext;
         
         if ( !len )
@@ -90,13 +89,12 @@ const char *file_extension( const char *name, size_t len )
         ext = name + len-1;
         while ( (name <= ext) && ('.' != *ext) ) {
                 ext--;
-                ext_len++;
-        };
+        }
 
         if ( name == ext )
-                ext_len = 0;
+                ext = NULL;
         else
                 ext++;
 
-        return ext_len ? ext : NULL;
+        return ext;
 }

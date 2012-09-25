@@ -45,7 +45,7 @@ int db_create()
                 return -1;
         }
 
-        if ( mysql_real_connect(s_db, g_srv.cfg->db_host, g_srv.cfg->db_user, 
+        if ( !mysql_real_connect(s_db, g_srv.cfg->db_host, g_srv.cfg->db_user, 
              g_srv.cfg->db_password, g_srv.cfg->db_schema, g_srv.cfg->db_port, 
              g_srv.cfg->db_unixsock, CLIENT_MULTI_STATEMENTS) ) {
                 ED2KD_LOGERR("failed connect to database: %s", mysql_error(s_db));
@@ -73,13 +73,13 @@ int db_destroy()
 int db_open()
 {
         static const char query_add_file[] =
-                "INSERT INTO files(fid,name,ext,size,type,mlength,mbitrate,mcodec)"
-                "  VALUES(?,?,?,?,?,?,?,?,?)"
+                "INSERT INTO files(fid, name, ext, size, type, mlength, mbitrate, mcodec)"
+                "  VALUES(?,?,?,?,?,?,?,?)"
                 "ON DUPLICATE KEY UPDATE"
                 "  name=VALUES(name), ext=VALUES(ext), size=VALUES(size), type=VALUES(type),"
                 "  mlength=VALUES(mlength), mbitrate=VALUES(mbitrate), mcodec=VALUES(mcodec);";
         static const char query_add_src[] =
-                "INSERT INTO sources(fid,src_id,src_port,complete,rating) VALUES(?,?,?,?,?)";
+                "INSERT INTO sources(fid, src_id, src_port, complete, rating) VALUES(?,?,?,?,?)";
         static const char query_del_src[] =
                 "DELETE FROM sources WHERE src_id=? AND src_port=?";
         static const char query_get_src[] =
@@ -91,7 +91,7 @@ int db_open()
                 return -1;
         }
 
-        if ( mysql_real_connect(s_db, g_srv.cfg->db_host, g_srv.cfg->db_user, 
+        if ( !mysql_real_connect(s_db, g_srv.cfg->db_host, g_srv.cfg->db_user, 
              g_srv.cfg->db_password, g_srv.cfg->db_schema, g_srv.cfg->db_port, 
              g_srv.cfg->db_unixsock, 0) ) {
                 ED2KD_LOGERR("failed connect to database: %s", mysql_error(s_db));
@@ -110,6 +110,7 @@ int db_open()
         return 0;
 
 failed:
+        ED2KD_LOGERR("MySQL error: %s", mysql_error(s_db));
         db_close();
 
         return -1;
@@ -138,7 +139,8 @@ int db_share_files( const struct pub_file *files, size_t count, const struct cli
         MYSQL_STMT *stmt_file = s_stmt[STMT_ADD_FILE], *stmt_src = s_stmt[STMT_ADD_SRC];
         MYSQL_BIND bind_file[8], bind_src[5];
 
-        memset(bind, 0, sizeof(bind_file));
+        memset(bind_file, 0, sizeof(bind_file));
+        memset(bind_src, 0, sizeof(bind_src));
         i=0;
         /* fid */
         bind_file[i].buffer_type = MYSQL_TYPE_STRING;
@@ -151,7 +153,6 @@ int db_share_files( const struct pub_file *files, size_t count, const struct cli
         /* ext */
         i++;
         bind_file[i].buffer_type = MYSQL_TYPE_STRING;
-        bind_file[i].buffer = (void*)ext;
         bind_file[i].length = &bind_file[i].buffer_length;
         bind_file[i].is_null = &is_ext_null;
         /* size */
@@ -207,7 +208,7 @@ int db_share_files( const struct pub_file *files, size_t count, const struct cli
                 /* find extension */
                 ext = file_extension(files->name, files->name_len);
                 if ( ext )
-                        ext_len  = files->name + files->name_len - ext;
+                        ext_len = files->name + files->name_len - ext;
 
                 DB_CHECK( !mysql_stmt_reset(stmt_file) );
                 i=0;
@@ -221,6 +222,7 @@ int db_share_files( const struct pub_file *files, size_t count, const struct cli
                 /* ext */
                 i++;
                 is_ext_null = ext ? 0 : 1;
+                bind_file[i].buffer = (void*)ext;
                 bind_file[i].buffer_length = ext_len;
                 /* size */
                 i++;
@@ -246,7 +248,6 @@ int db_share_files( const struct pub_file *files, size_t count, const struct cli
                 i=0;
                 
                 /* fid */
-                i++;
                 bind_src[i].buffer = (void*)files->hash;
                 /* src_id */
                 i++;

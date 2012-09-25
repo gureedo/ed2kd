@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS `files` (
   `mbitrate` INT UNSIGNED NULL COMMENT 'media bitrate',
   `mcodec` VARCHAR(32) NULL COMMENT 'media codec',
   PRIMARY KEY (`fid`),
-  UNIQUE INDEX `fid_UNIQUE` (`fid` ASC),
-  FULLTEXT INDEX name_IX (`name`)
+  UNIQUE INDEX `fid_UIX` (`fid` ASC),
+  FULLTEXT INDEX `name_IX` (`name`)
 ) ENGINE = MyISAM;
 
 CREATE TABLE IF NOT EXISTS `sources` (
@@ -37,30 +37,22 @@ delimiter |
 CREATE TRIGGER `sources_ai` AFTER INSERT ON `sources`
   FOR EACH ROW BEGIN
     UPDATE `files` SET
-      srcavail=srcavail+1,
-      srccomplete=srccomplete+new.complete,
-      rating=rating+new.rating,
-      rated_count = CASE WHEN new.rating<>0 THEN rated_count+1 ELSE 0 END
-    WHERE fid=new.fid;
+      `srcavail` = `srcavail` + 1,
+      `srccomplete` = `srccomplete` + new.complete,
+      `rating` = `rating` + new.rating,
+      `rated_count` = CASE WHEN new.rating<>0 THEN `rated_count` + 1 ELSE `rated_count` END
+    WHERE `fid` = new.fid;
   END;
 |
 
-CREATE TRIGGER `sources_bd` BEFORE DELETE ON sources
+CREATE TRIGGER `sources_bd` BEFORE DELETE ON `sources`
   FOR EACH ROW BEGIN
-    UPDATE files SET
-      srcavail=srcavail-1,
-      srccomplete=srccomplete-old.complete,
-      rating=rating-old.rating,
-      rated_count = CASE WHEN old.rating<>0 THEN rated_count-1 ELSE rated_count END
-    WHERE fid=old.fid;
-  END;
-|
-
-CREATE TRIGGER `files_au` AFTER UPDATE ON files
-  FOR EACH ROW BEGIN
-    CASE WHEN new.srcavail=0 THEN
-      DELETE FROM files WHERE fid=new.fid;
-    END CASE;
+    UPDATE `files` SET
+      `srcavail` = `srcavail` - 1,
+      `srccomplete` = `srccomplete` - old.complete,
+      `rating` = `rating` - old.rating,
+      `rated_count` = CASE WHEN old.rating<>0 THEN `rated_count` - 1 ELSE `rated_count` END
+    WHERE `fid` = old.fid;
   END;
 |
 

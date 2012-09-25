@@ -114,13 +114,13 @@ int main( int argc, char *argv[] )
         }
 
         if ( config_load(0) < 0 ) {
-                ED2KD_LOGWRN("failed to load configuration file");
+                ED2KD_LOGERR("failed to load configuration file");
                 return EXIT_FAILURE;
         }
 
 #ifdef _WIN32
         if ( 0 != WSAStartup(0x0201, &WSAData) ) {
-                ED2KD_LOGWRN("WSAStartup failed!");
+                ED2KD_LOGERR("WSAStartup failed!");
                 return EXIT_FAILURE;
         }
 #endif
@@ -199,7 +199,7 @@ int main( int argc, char *argv[] )
 
         free(job_threads);
 
-        // free job queue items
+        // todo: free job queue items
 
         evconnlistener_free(g_srv.tcp_listener);
         event_free(evsig_int);

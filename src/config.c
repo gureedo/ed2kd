@@ -28,12 +28,12 @@
 #define CFG_MAX_FILES_PER_CLIENT        "max_files_per_client"
 
 #ifdef DB_MYSQL
-#define CFG_DB_HOST                     "mysql.host"
-#define CFG_DB_PORT                     "mysql.port"
-#define CFG_DB_SCHEMA                   "mysql.schema"
-#define CFG_DB_USER                     "mysql.user"
-#define CFG_DB_PASSWORD                 "mysql.password"
-#define CFG_DB_UNIXSOCKET               "mysql.unixsock"
+#define CFG_DB_HOST                     "mysql_host"
+#define CFG_DB_PORT                     "mysql_port"
+#define CFG_DB_SCHEMA                   "mysql_schema"
+#define CFG_DB_USER                     "mysql_user"
+#define CFG_DB_PASSWORD                 "mysql_password"
+#define CFG_DB_UNIXSOCKET               "mysql_unixsock"
 #endif
 
 int config_load( const char * path )
@@ -210,7 +210,6 @@ void config_free()
         free(cfg->listen_addr);
 #ifdef DB_MYSQL
         free(cfg->db_host);
-        free(cfg->db_port);
         free(cfg->db_schema);
         free(cfg->db_user);
         free(cfg->db_password);
