@@ -32,7 +32,7 @@ static void send_hello( struct client *clnt )
         data.hdr.length = sizeof(data) - sizeof(data.hdr);
         data.opcode = OP_HELLO;
         data.hash_size = 16;
-        memcpy(data.hash, g_instance.cfg->hash, sizeof data.hash);
+        memcpy(data.hash, g_srv.cfg->hash, sizeof data.hash);
         data.client_id = ntohl(sa.sin_addr.s_addr);
         data.client_port = 4662;
         data.tag_count = 2;

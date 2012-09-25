@@ -29,11 +29,11 @@ static uint32_t get_next_lowid()
         atomic32_t old_id, new_id;
 
         do {
-                old_id = atomic_load(&g_instance.lowid_counter);
+                old_id = atomic_load(&g_srv.lowid_counter);
                 new_id = old_id + 1;
                 if ( new_id > MAX_LOWID )
                         new_id = 0;
-        } while ( !atomic_cas(&g_instance.lowid_counter, new_id, old_id) );
+        } while ( !atomic_cas(&g_srv.lowid_counter, new_id, old_id) );
 
         return new_id;
 }
@@ -42,8 +42,8 @@ struct client *client_new()
 {
         struct client *client = (struct client*)calloc(1, sizeof(*client));
 
-        if ( atomic_inc(&g_instance.user_count)+1 >= g_instance.cfg->max_clients ) {
-                evconnlistener_disable(g_instance.tcp_listener);
+        if ( atomic_inc(&g_srv.user_count)+1 >= g_srv.cfg->max_clients ) {
+                evconnlistener_disable(g_srv.tcp_listener);
         }
 
         return client;
@@ -94,10 +94,10 @@ void client_delete( struct client *clnt )
                         free(she);
                 }
 
-                atomic_sub(&g_instance.file_count, clnt->file_count);
+                atomic_sub(&g_srv.file_count, clnt->file_count);
 
-                if ( atomic_dec(&g_instance.user_count)-1 < g_instance.cfg->max_clients ) {
-                        evconnlistener_enable(g_instance.tcp_listener);
+                if ( atomic_dec(&g_srv.user_count)-1 < g_srv.cfg->max_clients ) {
+                        evconnlistener_enable(g_srv.tcp_listener);
                 }
         }
 
@@ -148,7 +148,7 @@ void client_portcheck_start( struct client *clnt )
         client_sa.sin_addr.s_addr = clnt->ip;
         client_sa.sin_port = htons(clnt->port);
 
-        clnt->bev_pc = bufferevent_socket_new(g_instance.evbase_tcp, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
+        clnt->bev_pc = bufferevent_socket_new(g_srv.evbase_tcp, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
         bufferevent_setcb(clnt->bev_pc, portcheck_read_cb, NULL, portcheck_event_cb, clnt);
 
         if ( bufferevent_socket_connect(clnt->bev_pc, (struct sockaddr*)&client_sa, sizeof(client_sa)) < 0 ) {
@@ -156,8 +156,8 @@ void client_portcheck_start( struct client *clnt )
                 clnt->bev_pc = NULL;
                 client_portcheck_finish(clnt, PORTCHECK_FAILED);
         } else {
-                clnt->evtimer_portcheck = evtimer_new(g_instance.evbase_tcp, portcheck_timeout_cb, clnt);
-                evtimer_add(clnt->evtimer_portcheck, g_instance.portcheck_timeout_tv);
+                clnt->evtimer_portcheck = evtimer_new(g_srv.evbase_tcp, portcheck_timeout_cb, clnt);
+                evtimer_add(clnt->evtimer_portcheck, g_srv.portcheck_timeout_tv);
         }
 }
 
@@ -181,7 +181,7 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
         }
 
         if ( clnt->lowid ) {
-                if ( g_instance.cfg->allow_lowid ) {
+                if ( g_srv.cfg->allow_lowid ) {
                         clnt->id = get_next_lowid();
                         clnt->port = 0;
                 } else {
@@ -194,8 +194,8 @@ void client_portcheck_finish( struct client *clnt, enum portcheck_result result 
 
         send_id_change(clnt->bev, clnt->id);
 
-        clnt->evtimer_status_notify = evtimer_new(g_instance.evbase_tcp, server_status_notify_cb, clnt);
-        event_add(clnt->evtimer_status_notify, g_instance.status_notify_tv);
+        clnt->evtimer_status_notify = evtimer_new(g_srv.evbase_tcp, server_status_notify_cb, clnt);
+        event_add(clnt->evtimer_status_notify, g_srv.status_notify_tv);
 }
 
 void client_share_files( struct client *clnt, struct pub_file *files, size_t count )
@@ -203,13 +203,13 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
         size_t i, real_count = 0;
         struct pub_file *f = files;
 
-        if ( clnt->file_count > g_instance.cfg->max_files_per_client ) {
+        if ( clnt->file_count > g_srv.cfg->max_files_per_client ) {
                 static const char msg[] = "WARNING: You reached shared files limit";
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
         }
 
-        if ( atomic_load(&g_instance.file_count) > g_instance.cfg->max_files ) {
+        if ( atomic_load(&g_srv.file_count) > g_srv.cfg->max_files ) {
                 static const char msg[] = "WARNING: Server reached shared files limit";
                 send_server_message(clnt->bev, msg, sizeof(msg) - 1);
                 return;
@@ -236,5 +236,5 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
         ED2KD_LOGDBG("client %u: published %u files, %u duplicates", clnt->id, count, count-real_count);
 
         clnt->file_count += real_count;
-        atomic_add(&g_instance.file_count, real_count);
+        atomic_add(&g_srv.file_count, real_count);
 }

@@ -19,7 +19,7 @@
 #include "server.h"
 #include "db.h"
 
-struct server_instance g_instance;
+struct server_instance g_srv;
 
 // command line options
 static const char *optString = "vhg";
@@ -139,44 +139,44 @@ int main( int argc, char *argv[] )
                 return EXIT_FAILURE;
         }
 
-        g_instance.evbase_main = event_base_new();
-        if ( NULL == g_instance.evbase_main ) {
+        g_srv.evbase_main = event_base_new();
+        if ( NULL == g_srv.evbase_main ) {
                 ED2KD_LOGERR("failed to create main event loop");
                 return EXIT_FAILURE;
         }
-        g_instance.evbase_tcp = event_base_new();
-        if ( NULL == g_instance.evbase_tcp ) {
+        g_srv.evbase_tcp = event_base_new();
+        if ( NULL == g_srv.evbase_tcp ) {
                 ED2KD_LOGERR("failed to create tcp event loop");
                 return EXIT_FAILURE;
         }
 
-        evsig_int = evsignal_new(g_instance.evbase_main, SIGINT, sigint_cb, NULL);
+        evsig_int = evsignal_new(g_srv.evbase_main, SIGINT, sigint_cb, NULL);
         evsignal_add(evsig_int, NULL);
 
         // common timers timevals
-        g_instance.portcheck_timeout_tv = event_base_init_common_timeout(g_instance.evbase_tcp, &g_instance.cfg->portcheck_timeout_tv);
-        g_instance.status_notify_tv = event_base_init_common_timeout(g_instance.evbase_tcp, &g_instance.cfg->status_notify_tv);
+        g_srv.portcheck_timeout_tv = event_base_init_common_timeout(g_srv.evbase_tcp, &g_srv.cfg->portcheck_timeout_tv);
+        g_srv.status_notify_tv = event_base_init_common_timeout(g_srv.evbase_tcp, &g_srv.cfg->status_notify_tv);
 
         if ( db_create() < 0 ) {
                 ED2KD_LOGERR("failed to create database");
                 return EXIT_FAILURE;
         }
 
-        g_instance.thread_count = omp_get_num_procs() + 1;
+        g_srv.thread_count = omp_get_num_procs() + 1;
 
-        pthread_cond_init(&g_instance.job_cond, NULL);
-        pthread_mutex_init(&g_instance.job_mutex, NULL);
-        TAILQ_INIT(&g_instance.jqueue);
+        pthread_cond_init(&g_srv.job_cond, NULL);
+        pthread_mutex_init(&g_srv.job_mutex, NULL);
+        TAILQ_INIT(&g_srv.jqueue);
 
-        job_threads = (pthread_t *)malloc(g_instance.thread_count * sizeof(*job_threads));
+        job_threads = (pthread_t *)malloc(g_srv.thread_count * sizeof(*job_threads));
 
         // start tcp worker threads
-        for ( i=0; i<g_instance.thread_count; ++i ) {
+        for ( i=0; i<g_srv.thread_count; ++i ) {
                 pthread_create(&job_threads[i], NULL, server_job_worker, NULL);
         }
 
         // start tcp dispatch thread
-        pthread_create(&tcp_thread, NULL, server_base_worker, g_instance.evbase_tcp);
+        pthread_create(&tcp_thread, NULL, server_base_worker, g_srv.evbase_tcp);
 
         // start tcp listen loop
         if ( server_listen() < 0 ) {
@@ -186,14 +186,14 @@ int main( int argc, char *argv[] )
 
         pthread_join(tcp_thread, NULL);
 
-        while ( EBUSY == pthread_cond_destroy(&g_instance.job_cond) ) {
-                pthread_cond_broadcast(&g_instance.job_cond);
+        while ( EBUSY == pthread_cond_destroy(&g_srv.job_cond) ) {
+                pthread_cond_broadcast(&g_srv.job_cond);
                 //pthread_yield();
         }
 
-        pthread_mutex_destroy(&g_instance.job_mutex);
+        pthread_mutex_destroy(&g_srv.job_mutex);
 
-        for ( i=0; i<g_instance.thread_count; ++i ) {
+        for ( i=0; i<g_srv.thread_count; ++i ) {
                 pthread_join(job_threads[i], NULL);
         }
 
@@ -201,10 +201,10 @@ int main( int argc, char *argv[] )
 
         // free job queue items
 
-        evconnlistener_free(g_instance.tcp_listener);
+        evconnlistener_free(g_srv.tcp_listener);
         event_free(evsig_int);
-        event_base_free(g_instance.evbase_tcp);
-        event_base_free(g_instance.evbase_main);
+        event_base_free(g_srv.evbase_tcp);
+        event_base_free(g_srv.evbase_main);
 
         if ( db_destroy() < 0 ) {
                 ED2KD_LOGERR("failed to destroy database");

@@ -28,17 +28,22 @@ struct client;
 #define MAX_SEARCH_FILES                200
 #define MAX_UNCOMPRESSED_PACKET_SIZE    300*1024
 
-struct server_config
-{
+struct server_config {
         /* listen ip address */
-        char listen_addr[15];
+        char *listen_addr;
+
+        /* listen ip address (parsed) */
         uint32_t listen_addr_inaddr;
+
         /* listen port */
         uint16_t listen_port;
+
         /* listen backlog */
         int listen_backlog;
+
         /* server hash */
         unsigned char hash[16];
+
         /* server TCP capabilities flags */
         uint32_t srv_tcp_flags;
 
@@ -74,6 +79,15 @@ struct server_config
 
         /* allow lowid clients flag */
         unsigned allow_lowid:1;
+
+#ifdef DB_MYSQL
+        char *db_unixsock;
+        char *db_host;
+        uint16_t db_port;
+        char *db_schema;
+        char *db_user;
+        char *db_password;
+#endif
 };
 
 struct server_instance {
@@ -109,7 +123,7 @@ struct server_instance {
         const struct timeval *status_notify_tv;
 };
 
-extern struct server_instance g_instance;
+extern struct server_instance g_srv;
 
 /**
   @brief start main loop and accept incoming connections

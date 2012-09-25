@@ -30,3 +30,21 @@ max_files = 100000000;
 
 // maximum shared files per client
 max_files_per_client = 20000;
+
+// database server ip address
+mysql.host = "127.0.0.1";
+
+// database server port
+mysql.port = 3306;
+
+// database schema
+mysql.schema = "";
+
+// database user
+mysql.user = "";
+
+// database password
+mysql.password = "";
+
+// database unix socket path
+//mysql.unixsock = "/path/to/unix.sock";

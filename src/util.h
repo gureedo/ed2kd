@@ -59,4 +59,12 @@ void get_random_user_hash( unsigned char *hash );
 */
 uint8_t get_ed2k_file_type( const char *type, size_t len );
 
+/**
+  @brief search file extension
+  @param name   file name
+  @param len    file name length
+  @return pointer where file extension begins or NULL
+*/
+const char *file_extension( const char *name, size_t len );
+
 #endif // UTIL_H

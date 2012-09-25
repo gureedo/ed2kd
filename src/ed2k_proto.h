@@ -36,8 +36,7 @@ enum client_caps {
         CLI_CAP_REQUIRECRYPT = 0x0800
 }; 
 
-enum packet_proto
-{
+enum packet_proto {
         PROTO_EDONKEY = 0xE3,
         PROTO_EMULE   = 0xC5,
         PROTO_PACKED  = 0xD4

@@ -20,7 +20,7 @@ void send_id_change( struct bufferevent *bev, uint32_t id )
         data.hdr.length = sizeof(data) - sizeof(data.hdr);
         data.opcode = OP_IDCHANGE;
         data.user_id = id;
-        data.tcp_flags = g_instance.cfg->srv_tcp_flags;
+        data.tcp_flags = g_srv.cfg->srv_tcp_flags;
 
         bufferevent_write(bev, &data, sizeof(data));
 }
@@ -45,8 +45,8 @@ void send_server_status( struct bufferevent *bev )
         data.hdr.proto = PROTO_EDONKEY;
         data.hdr.length = sizeof(data) - sizeof(data.hdr);
         data.opcode = OP_SERVERSTATUS;
-        data.user_count = atomic_load(&g_instance.user_count);
-        data.file_count = atomic_load(&g_instance.file_count);
+        data.user_count = atomic_load(&g_srv.user_count);
+        data.file_count = atomic_load(&g_srv.file_count);
 
         bufferevent_write(bev, &data, sizeof(data));
 }
@@ -58,42 +58,42 @@ void send_server_ident( struct bufferevent *bev )
         data.hdr.proto = PROTO_EDONKEY;
         data.hdr.length = sizeof(data) - sizeof(data.hdr);
         data.opcode = OP_SERVERSTATUS;
-        memcpy(data.hash, g_instance.cfg->hash, sizeof(data.hash));
-        data.ip = g_instance.cfg->listen_addr_inaddr;
-        data.port = g_instance.cfg->listen_port;
-        data.tag_count = (g_instance.cfg->server_name_len>0) + (g_instance.cfg->server_descr_len>0);
+        memcpy(data.hash, g_srv.cfg->hash, sizeof(data.hash));
+        data.ip = g_srv.cfg->listen_addr_inaddr;
+        data.port = g_srv.cfg->listen_port;
+        data.tag_count = (g_srv.cfg->server_name_len>0) + (g_srv.cfg->server_descr_len>0);
 
         if ( data.tag_count > 0 ) {
                 struct evbuffer *buf = evbuffer_new();
                 evbuffer_add(buf, &data, sizeof(data));
 
-                if ( g_instance.cfg->server_name_len > 0 ) {
+                if ( g_srv.cfg->server_name_len > 0 ) {
                         struct tag_header th;
                         struct tag_strval *tv;
-                        size_t data_len = sizeof(*tv) + g_instance.cfg->server_name_len - 1;
+                        size_t data_len = sizeof(*tv) + g_srv.cfg->server_name_len - 1;
                         tv = (struct tag_strval*)alloca(data_len);
 
                         th.type = TT_STRING;
                         th.name_len = 1;
                         *th.name = TN_SERVERNAME;
-                        tv->len = g_instance.cfg->server_name_len;
-                        memcpy(tv->str, g_instance.cfg->server_name, g_instance.cfg->server_name_len);
+                        tv->len = g_srv.cfg->server_name_len;
+                        memcpy(tv->str, g_srv.cfg->server_name, g_srv.cfg->server_name_len);
 
                         evbuffer_add(buf, &th, sizeof(th));
                         evbuffer_add(buf, tv, data_len);
                 }
 
-                if ( g_instance.cfg->server_descr_len > 0 ) {
+                if ( g_srv.cfg->server_descr_len > 0 ) {
                         struct tag_header th;
                         struct tag_strval *tv;
-                        size_t data_len = sizeof(*tv) + g_instance.cfg->server_descr_len - 1;
+                        size_t data_len = sizeof(*tv) + g_srv.cfg->server_descr_len - 1;
                         tv = (struct tag_strval*)alloca(data_len);
 
                         th.type = TT_STRING;
                         th.name_len = 1;
                         *th.name = TN_DESCRIPTION;
-                        tv->len = g_instance.cfg->server_descr_len;
-                        memcpy(tv->str, g_instance.cfg->server_descr, g_instance.cfg->server_descr_len);
+                        tv->len = g_srv.cfg->server_descr_len;
+                        memcpy(tv->str, g_srv.cfg->server_descr, g_srv.cfg->server_descr_len);
 
                         evbuffer_add(buf, &th, sizeof(th));
                         evbuffer_add(buf, tv, data_len);

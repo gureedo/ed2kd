@@ -40,11 +40,11 @@ void *server_base_worker( void * arg )
 
 void server_add_job( struct job *job )
 {
-        pthread_mutex_lock(&g_instance.job_mutex);
+        pthread_mutex_lock(&g_srv.job_mutex);
         client_addref(job->clnt);
-        TAILQ_INSERT_TAIL(&g_instance.jqueue, job, qentry);
-        pthread_mutex_unlock(&g_instance.job_mutex);
-        pthread_cond_signal(&g_instance.job_cond);
+        TAILQ_INSERT_TAIL(&g_srv.jqueue, job, qentry);
+        pthread_mutex_unlock(&g_srv.job_mutex);
+        pthread_cond_signal(&g_srv.job_cond);
 }
 
 static int process_login_request( struct packet_buffer *pb, struct client *clnt )
@@ -364,8 +364,8 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
 
         switch ( opcode ) {
         case OP_LOGINREQUEST:
-                send_server_message(clnt->bev, g_instance.cfg->welcome_msg, g_instance.cfg->welcome_msg_len);
-                if ( !g_instance.cfg->allow_lowid ) {
+                send_server_message(clnt->bev, g_srv.cfg->welcome_msg, g_srv.cfg->welcome_msg_len);
+                if ( !g_srv.cfg->allow_lowid ) {
                         static const char msg_highid[] = "WARNING: Only HighID clients!";
                         send_server_message(clnt->bev, msg_highid, sizeof(msg_highid) - 1);
                 }
@@ -490,18 +490,18 @@ void* server_job_worker( void *ctx )
         for(;;) {
                 struct job *job = 0;
 
-                pthread_mutex_lock(&g_instance.job_mutex);
+                pthread_mutex_lock(&g_srv.job_mutex);
                 for(;;) {
                         struct job *j, *jtmp;
 
-                        if ( atomic_load(&g_instance.terminate) ) {
-                                pthread_mutex_unlock(&g_instance.job_mutex);
+                        if ( atomic_load(&g_srv.terminate) ) {
+                                pthread_mutex_unlock(&g_srv.job_mutex);
                                 goto exit;
                         }
 
-                        TAILQ_FOREACH_SAFE( j, &g_instance.jqueue, qentry, jtmp ) {
+                        TAILQ_FOREACH_SAFE( j, &g_srv.jqueue, qentry, jtmp ) {
                                 if ( atomic_cas(&j->clnt->locked, 1, 0) ) {
-                                        TAILQ_REMOVE(&g_instance.jqueue, j, qentry);
+                                        TAILQ_REMOVE(&g_srv.jqueue, j, qentry);
                                         job = j;
                                         break;
                                 }
@@ -510,10 +510,10 @@ void* server_job_worker( void *ctx )
                         if ( job )
                                 break;
 
-                        pthread_cond_wait(&g_instance.job_cond, &g_instance.job_mutex);
+                        pthread_cond_wait(&g_srv.job_cond, &g_srv.job_mutex);
                 }
 
-                pthread_mutex_unlock(&g_instance.job_mutex);
+                pthread_mutex_unlock(&g_srv.job_mutex);
 
                 if ( !atomic_load(&job->clnt->deleted) ) {
                         switch( job->type ) {
@@ -533,7 +533,7 @@ void* server_job_worker( void *ctx )
                         case JOB_SERVER_STATUS_NOTIFY:
                                 //ED2KD_LOGDBG("JOB_SERVER_STATUS_NOTIFY event");
                                 send_server_status(job->clnt->bev);
-                                event_add(job->clnt->evtimer_status_notify, g_instance.status_notify_tv);
+                                event_add(job->clnt->evtimer_status_notify, g_srv.status_notify_tv);
                                 break;
 
                         case JOB_PORTCHECK_EVENT: {
@@ -572,7 +572,7 @@ exit:
 
 void server_stop()
 {
-        event_base_loopbreak(g_instance.evbase_main);
-        event_base_loopbreak(g_instance.evbase_tcp);
-        atomic_store(&g_instance.terminate, 1);
+        event_base_loopbreak(g_srv.evbase_main);
+        event_base_loopbreak(g_srv.evbase_tcp);
+        atomic_store(&g_srv.terminate, 1);
 }

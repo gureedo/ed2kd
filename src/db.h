@@ -30,7 +30,7 @@ struct pub_file {
         uint32_t media_bitrate;
         uint16_t media_codec_len;
         char media_codec[MAX_MCODEC_LEN+1];
-        unsigned complete:1;
+        unsigned char complete;
 };
 
 enum search_node_type {

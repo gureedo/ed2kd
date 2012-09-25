@@ -9,8 +9,7 @@
 #include "client.h"
 #include "util.h"
 
-static uint64_t
-        sdbm( const unsigned char *str, size_t length )
+static uint64_t sdbm( const unsigned char *str, size_t length )
 {
         uint64_t hash = 0;
         size_t i;
@@ -32,7 +31,7 @@ static uint64_t
 #define GET_SID_ID(sid)     (uint32_t)((sid)>>32)
 #define GET_SID_PORT(sid)   (uint16_t)(sid)
 
-enum statement_types {
+enum query_statements {
         SHARE_UPD,
         SHARE_INS,
         SHARE_SRC,
@@ -176,20 +175,24 @@ int db_open()
         return 0;
 
 failed:
-        for ( i=0; i<STMT_COUNT; ++i ) {
-                if ( s_stmt[i] )
-                        sqlite3_finalize(s_stmt[i]);
-        }
+        db_close();
         return -1;
 }
 
 int db_destroy()
 {
-        return db_close();
+        return (SQLITE_OK == sqlite3_close(s_db)) ? 0 : -1;
 }
 
 int db_close()
 {
+        size_t i;
+
+        for ( i=0; i<STMT_COUNT; ++i ) {
+                if ( s_stmt[i] )
+                        sqlite3_finalize(s_stmt[i]);
+        }
+
         return (SQLITE_OK == sqlite3_close(s_db)) ? 0 : -1;
 }
 

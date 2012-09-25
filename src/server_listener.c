@@ -1,4 +1,4 @@
-#include "login.h"
+#include "server.h"
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
@@ -7,7 +7,6 @@
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
 
-#include "server.h"
 #include "log.h"
 #include "client.h"
 #include "packet.h"
@@ -29,7 +28,7 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
 
         clnt = client_new();
 
-        bev = bufferevent_socket_new(g_instance.evbase_tcp, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
+        bev = bufferevent_socket_new(g_srv.evbase_tcp, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
         clnt->bev = bev;
         clnt->ip = peer_sa->sin_addr.s_addr;
 
@@ -64,28 +63,28 @@ int server_listen( void )
 
         bind_sa_len = sizeof(bind_sa);
         memset(&bind_sa, 0, sizeof(bind_sa));
-        ret = evutil_parse_sockaddr_port(g_instance.cfg->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
+        ret = evutil_parse_sockaddr_port(g_srv.cfg->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
         if ( ret < 0 ) {
-                ED2KD_LOGERR("failed to parse listen addr '%s'", g_instance.cfg->listen_addr);
+                ED2KD_LOGERR("failed to parse listen addr '%s'", g_srv.cfg->listen_addr);
                 return -1;
         }
-        bind_sa.sin_port = htons(g_instance.cfg->listen_port);
+        bind_sa.sin_port = htons(g_srv.cfg->listen_port);
         bind_sa.sin_family = AF_INET;
 
-        g_instance.tcp_listener = evconnlistener_new_bind(g_instance.evbase_main,
+        g_srv.tcp_listener = evconnlistener_new_bind(g_srv.evbase_main,
                 accept_cb, NULL, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
-                g_instance.cfg->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
-        if ( NULL == g_instance.tcp_listener ) {
+                g_srv.cfg->listen_backlog, (struct sockaddr*)&bind_sa, sizeof(bind_sa) );
+        if ( NULL == g_srv.tcp_listener ) {
                 int err = EVUTIL_SOCKET_ERROR();
-                ED2KD_LOGERR("failed to start listen on %s:%u, last error: %s", g_instance.cfg->listen_addr, g_instance.cfg->listen_port, evutil_socket_error_to_string(err));
+                ED2KD_LOGERR("failed to start listen on %s:%u, last error: %s", g_srv.cfg->listen_addr, g_srv.cfg->listen_port, evutil_socket_error_to_string(err));
                 return -1;
         }
 
-        evconnlistener_set_error_cb(g_instance.tcp_listener, accept_error_cb);
+        evconnlistener_set_error_cb(g_srv.tcp_listener, accept_error_cb);
 
-        ED2KD_LOGNFO("start listening on %s:%u", g_instance.cfg->listen_addr, g_instance.cfg->listen_port);
+        ED2KD_LOGNFO("start listening on %s:%u", g_srv.cfg->listen_addr, g_srv.cfg->listen_port);
 
-        ret = event_base_dispatch(g_instance.evbase_main);
+        ret = event_base_dispatch(g_srv.evbase_main);
         if ( ret < 0 )
                 ED2KD_LOGERR("main loop finished with error");
 
