@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <time.h>
 
 #ifdef USE_DEBUG
 #define DEBUG_ONLY(x) x
@@ -66,5 +67,30 @@ uint8_t get_ed2k_file_type( const char *type, size_t len );
   @return pointer where file extension begins or NULL
 */
 const char *file_extension( const char *name, size_t len );
+
+struct token_bucket {
+        double tokens;
+        time_t last_update;
+};
+
+/**
+  @brief token bucket initialization
+  @param bucket pinter to target bucket
+  @param max_tokens initial number of tokens in bucket (tokens per second)
+*/
+__inline void token_bucket_init( struct token_bucket *bucket, double tokens )
+{
+        bucket->last_update = time(NULL);
+        bucket->tokens = tokens;
+}
+
+/**
+  @brief try to get one token from bucket
+  @param bucket pinter to target bucket
+  @param max_tokens maximum number of tokens per second
+  @return 0 on success, -1 on no more tokens left in bucket
+*/
+int token_bucket_update ( struct token_bucket *bucket, double max_tokens );
+
 
 #endif // UTIL_H
