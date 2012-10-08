@@ -11,7 +11,6 @@
 #include <event2/thread.h>
 #include <event2/listener.h>
 
-#include "config.h"
 #include "version.h"
 #include "util.h"
 #include "log.h"
@@ -86,7 +85,7 @@ int main( int argc, char *argv[] )
                 return EXIT_FAILURE;
         }
 
-        // parse command line arguments
+        /* parse command line arguments */
         opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
         while( opt != -1 ) {
                 switch( opt ) {
@@ -113,17 +112,17 @@ int main( int argc, char *argv[] )
                 opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
         }
 
-        if ( config_load(0) < 0 ) {
-                ED2KD_LOGERR("failed to load configuration file");
-                return EXIT_FAILURE;
-        }
-
 #ifdef _WIN32
         if ( 0 != WSAStartup(0x0201, &WSAData) ) {
                 ED2KD_LOGERR("WSAStartup failed!");
                 return EXIT_FAILURE;
         }
 #endif
+
+        if ( !server_load_config(NULL) ) {
+                ED2KD_LOGERR("failed to load configuration file");
+                return EXIT_FAILURE;
+        }
 
         display_libevent_info();
 
@@ -179,7 +178,7 @@ int main( int argc, char *argv[] )
         pthread_create(&tcp_thread, NULL, server_base_worker, g_srv.evbase_tcp);
 
         // start tcp listen loop
-        if ( server_listen() < 0 ) {
+        if ( !server_listen() ) {
                 ED2KD_LOGERR("failed to start server listener");
                 server_stop();
         }
@@ -210,7 +209,7 @@ int main( int argc, char *argv[] )
                 ED2KD_LOGERR("failed to destroy database");
         }
 
-        config_free();
+        server_free_config();
 
         return EXIT_SUCCESS;
 }

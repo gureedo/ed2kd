@@ -24,7 +24,7 @@ static void dummy_cb( evutil_socket_t fd, short what, void *ctx )
 
 void *server_base_worker( void * arg )
 {
-        // todo: after moving to libevent 2.1.x replace this with EVLOOP_NO_EXIT_ON_EMPTY flag
+        // todo: after moving to libevent 2.1.x replace timer below with EVLOOP_NO_EXIT_ON_EMPTY flag
 
         struct event_base *evbase = (struct event_base *)arg;
         struct timeval tv = {500, 0};
@@ -129,6 +129,11 @@ static int process_offer_files( struct packet_buffer *pb, struct client *clnt )
         size_t i;
         uint32_t count;
         struct pub_file *files, *cur_file;
+
+        if ( token_bucket_update(&clnt->limit_offer, g_srv.cfg->max_offers_limit) ) {
+                client_delete(clnt);
+                return -1;
+        }
 
         PB_READ_UINT32(pb, count);
         PB_CHECK(count <= 200 );
@@ -252,7 +257,12 @@ static int process_search_request( struct packet_buffer *pb, struct client *clnt
         struct search_node *n, root;
         n = &root;
 
-        memset(&root, 0, sizeof root);
+        if ( token_bucket_update(&clnt->limit_search, g_srv.cfg->max_searches_limit) ) {
+                client_delete(clnt);
+                return -1;
+        }
+
+        memset(&root, 0, sizeof(root));
 
         while ( n ) {
                 if( (ST_AND <= n->type) && (ST_NOT >= n->type) ) {
@@ -364,6 +374,10 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
 
         switch ( opcode ) {
         case OP_LOGINREQUEST:
+                /* client already logined */
+                if ( clnt->id )
+                        client_delete(clnt);
+                        
                 send_server_message(clnt->bev, g_srv.cfg->welcome_msg, g_srv.cfg->welcome_msg_len);
                 if ( !g_srv.cfg->allow_lowid ) {
                         static const char msg_highid[] = "WARNING: Only HighID clients!";
@@ -382,7 +396,6 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
                 return 0;
 
         case OP_QUERY_MORE_RESULT:
-                send_reject(clnt->bev);
                 return 0;
 
         case OP_DISCONNECT:
@@ -390,6 +403,7 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
                 return 0;
 
         case OP_GETSOURCES:
+                /* todo: bytes left >= ED2K_HASH_SIZE */
                 client_get_sources(clnt, pb->ptr);
                 return 0;
 

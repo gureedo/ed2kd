@@ -109,9 +109,9 @@ int token_bucket_update( struct token_bucket *bucket, double max_tokens )
         if ( bucket->tokens > max_tokens )
                 bucket->tokens = max_tokens;
         if ( bucket->tokens < 1.0 ) {
-                return -1;
+                return 0;
         } else {
                 bucket->tokens -= 1.0;
-                return 0;
+                return 1;
         }
 }

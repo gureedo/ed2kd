@@ -88,7 +88,7 @@ __inline void token_bucket_init( struct token_bucket *bucket, double tokens )
   @brief try to get one token from bucket
   @param bucket pinter to target bucket
   @param max_tokens maximum number of tokens per second
-  @return 0 on success, -1 on no more tokens left in bucket
+  @return non-zero on success
 */
 int token_bucket_update ( struct token_bucket *bucket, double max_tokens );
 

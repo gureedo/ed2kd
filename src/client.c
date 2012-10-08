@@ -32,7 +32,7 @@ static uint32_t get_next_lowid()
                 old_id = atomic_load(&g_srv.lowid_counter);
                 new_id = old_id + 1;
                 if ( new_id > MAX_LOWID )
-                        new_id = 0;
+                        new_id = 1;
         } while ( !atomic_cas(&g_srv.lowid_counter, new_id, old_id) );
 
         return new_id;
@@ -40,13 +40,16 @@ static uint32_t get_next_lowid()
 
 struct client *client_new()
 {
-        struct client *client = (struct client*)calloc(1, sizeof(*client));
+        struct client *clnt = (struct client*)calloc(1, sizeof(*clnt));
 
         if ( atomic_inc(&g_srv.user_count)+1 >= g_srv.cfg->max_clients ) {
                 evconnlistener_disable(g_srv.tcp_listener);
         }
 
-        return client;
+        token_bucket_init(&clnt->limit_offer, g_srv.cfg->max_offers_limit);
+        token_bucket_init(&clnt->limit_search, g_srv.cfg->max_searches_limit);
+
+        return clnt;
 }
 
 void client_delete( struct client *clnt )
@@ -118,7 +121,7 @@ void client_search_files( struct client *clnt, struct search_node *search_tree )
         //data.files_count = 0;
         evbuffer_add(buf, &data, sizeof(data));
 
-        if ( db_search_files(search_tree, buf, &count) >= 0 ) {
+        if ( db_search_files(search_tree, buf, &count) ) {
                 struct packet_search_result *ph = (struct packet_search_result*)evbuffer_pullup(buf, sizeof(*ph));
                 ph->hdr.length = evbuffer_get_length(buf) - sizeof(ph->hdr);
                 ph->files_count = count;
@@ -134,9 +137,8 @@ void client_get_sources( struct client *clnt, const unsigned char *hash )
         struct file_source sources[MAX_FOUND_SOURCES];
         uint8_t src_count = ARRAY_SIZE(sources);
 
-        db_get_sources(hash, sources, &src_count);
-
-        send_found_sources(clnt->bev, hash, sources, src_count);
+        if (  db_get_sources(hash, sources, &src_count) )
+                send_found_sources(clnt->bev, hash, sources, src_count);
 }
 
 void client_portcheck_start( struct client *clnt )
@@ -231,10 +233,9 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
                 f++;
         }
 
-        db_share_files(files, count, clnt);
-
-        ED2KD_LOGDBG("client %u: published %u files, %u duplicates", clnt->id, count, count-real_count);
-
-        clnt->file_count += real_count;
-        atomic_add(&g_srv.file_count, real_count);
+        if ( db_share_files(files, count, clnt) ) {
+                ED2KD_LOGDBG("client %u: published %u files, %u duplicates", clnt->id, count, count-real_count);
+                clnt->file_count += real_count;
+                atomic_add(&g_srv.file_count, real_count);
+        }
 }

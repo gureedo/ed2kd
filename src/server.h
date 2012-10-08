@@ -77,17 +77,14 @@ struct server_config {
         /* maximum shared files per client */
         size_t max_files_per_client;
 
+        /* maximum offers limit */
+        size_t max_offers_limit;
+
+        /* maximum searches limit */
+        size_t max_searches_limit;
+
         /* allow lowid clients flag */
         unsigned allow_lowid:1;
-
-#ifdef DB_MYSQL
-        char *db_unixsock;
-        char *db_host;
-        uint16_t db_port;
-        char *db_schema;
-        char *db_user;
-        char *db_password;
-#endif
 };
 
 struct server_instance {
@@ -126,8 +123,19 @@ struct server_instance {
 extern struct server_instance g_srv;
 
 /**
+  @brief loads server configuration from given file
+  @return non-zero on success
+*/
+int server_load_config( const char *path );
+
+/**
+  @brief frees server configuration
+*/
+void server_free_config();
+
+/**
   @brief start main loop and accept incoming connections
-  @return -1 on error, 0 on success
+  @return non-zero on success
 */
 int server_listen();
 

@@ -13,14 +13,15 @@
 
 static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *sa, int socklen, void *ctx )
 {
-        struct sockaddr_in *peer_sa = (struct sockaddr_in*)sa;
+        struct sockaddr_in *sa_in;
         struct client *clnt;
         struct bufferevent *bev;
 
         (void)listener;
         (void)ctx;
 
-        assert(sizeof(struct sockaddr_in) == socklen);
+        assert( AF_INET == sa->sa_family );
+        sa_in = (struct sockaddr_in*)sa;
 
         // todo: limit total client count
         // todo: limit connections from same ip
@@ -30,7 +31,7 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
 
         bev = bufferevent_socket_new(g_srv.evbase_tcp, fd, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
         clnt->bev = bev;
-        clnt->ip = peer_sa->sin_addr.s_addr;
+        clnt->ip = sa_in->sin_addr.s_addr;
 
 #ifdef USE_DEBUG
         evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof(clnt->dbg.ip_str));
@@ -66,7 +67,7 @@ int server_listen( void )
         ret = evutil_parse_sockaddr_port(g_srv.cfg->listen_addr, (struct sockaddr*)&bind_sa, &bind_sa_len);
         if ( ret < 0 ) {
                 ED2KD_LOGERR("failed to parse listen addr '%s'", g_srv.cfg->listen_addr);
-                return -1;
+                return 0;
         }
         bind_sa.sin_port = htons(g_srv.cfg->listen_port);
         bind_sa.sin_family = AF_INET;
@@ -77,7 +78,7 @@ int server_listen( void )
         if ( NULL == g_srv.tcp_listener ) {
                 int err = EVUTIL_SOCKET_ERROR();
                 ED2KD_LOGERR("failed to start listen on %s:%u, last error: %s", g_srv.cfg->listen_addr, g_srv.cfg->listen_port, evutil_socket_error_to_string(err));
-                return -1;
+                return 0;
         }
 
         evconnlistener_set_error_cb(g_srv.tcp_listener, accept_error_cb);
@@ -88,6 +89,6 @@ int server_listen( void )
         if ( ret < 0 )
                 ED2KD_LOGERR("main loop finished with error");
 
-        return 0;
+        return 1;
 }
 

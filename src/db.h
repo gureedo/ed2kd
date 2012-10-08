@@ -72,20 +72,44 @@ struct search_node {
         };
 };
 
+/**
+  @return non-zero on success
+*/
 int db_create();
 
+/**
+  @return non-zero on success
+*/
 int db_destroy();
 
+/**
+  @return non-zero on success
+*/
 int db_open();
 
+/**
+  @return non-zero on success
+*/
 int db_close();
 
+/**
+  @return non-zero on success
+*/
 int db_share_files( const struct pub_file *files, size_t count, const struct client *owner );
 
+/**
+  @return non-zero on success
+*/
 int db_remove_source( const struct client *owner );
 
+/**
+  @return non-zero on success
+*/
 int db_search_files( struct search_node *root, struct evbuffer *buf, size_t *count );
 
+/**
+  @return non-zero on success
+*/
 int db_get_sources( const unsigned char *hash, struct file_source *out_sources, uint8_t *size );
 
 #endif // DB_H

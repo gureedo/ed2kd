@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include "uthash.h"
 #include "atomic.h"
+#include "util.h"
 
 struct search_node;
 struct shared_file_entry;
@@ -15,7 +16,6 @@ struct pub_file;
 #define MAX_NICK_LEN		255
 #define	MAX_FOUND_SOURCES	200 // move to config
 #define	MAX_FOUND_FILES 	200 // move to config
-#define PORTCHECK_TIMEOUT       5 // ms, move to config
 
 enum portcheck_result {
         PORTCHECK_FAILED,
@@ -61,6 +61,12 @@ struct client {
         volatile atomic32_t ref_cnt;
         /* marked for remove flag */
         volatile atomic32_t deleted;
+
+        /* offer limit */
+        struct token_bucket limit_offer;
+
+        /* search limit */
+        struct token_bucket limit_search;
 
 #ifdef USE_DEBUG
         /* for debugging only */

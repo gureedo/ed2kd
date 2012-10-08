@@ -23,7 +23,6 @@ void server_read_cb( struct bufferevent *bev, void *ctx )
 
 void server_event_cb( struct bufferevent *bev, short events, void *ctx )
 {
-
         struct job_event *job = (struct job_event*)calloc(1, sizeof *job);
         (void)bev;
 
