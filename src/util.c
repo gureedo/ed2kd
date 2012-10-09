@@ -10,17 +10,17 @@ int hex2bin( const char *src, unsigned char *dst, size_t dst_len )
         size_t i;
         for ( i=0; i<dst_len; ++i ) {
                 dst[i] = 0;
-                if ( src[i] >= '0' && src[i] <= '9')
-                        dst[i] = 16*(src[i]-'0');
+                if ( src[i] >= '0' && src[i] <= '9' )
+                        dst[i] = 16 * (src[i] - '0');
                 else if ( src[i] >= 'a' && src[i] <= 'f' )
-                        dst[i] = 16*(src[i] - 'a' + 10);
+                        dst[i] = 16 * (src[i] - 'a' + 10);
                 else if ( src[i] >= 'A' && src[i] <= 'F' )
-                        dst[i] = 16*(src[i] - 'A' + 10);
+                        dst[i] = 16 * (src[i] - 'A' + 10);
                 else
                         return -1;
 
-                if ( src[i+1] >= '0' && src[i+1] <= '9')
-                        dst[i] += src[i+1]-'0';
+                if ( src[i+1] >= '0' && src[i+1] <= '9' )
+                        dst[i] += src[i+1] - '0';
                 else if ( src[i+1] >= 'a' && src[i+1] <= 'f' )
                         dst[i] += src[i+1] - 'a' + 10;
                 else if ( src[i+i] >= 'A' && src[i+1] <= 'F' )

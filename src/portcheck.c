@@ -53,27 +53,27 @@ static int process_hello_answer( struct packet_buffer *pb, struct client *clnt )
         PB_CHECK( memcmp(clnt->hash, pb->ptr, ED2K_HASH_SIZE) == 0 );
         PB_SEEK(pb, ED2K_HASH_SIZE);
 
-        return 0;
+        return 1;
 
 malformed:
-        return -1;
+        return 0;
 }
 
 static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
 {
         switch ( opcode ) {
         case OP_HELLOANSWER:
-                PB_CHECK( process_hello_answer(pb, clnt) == 0 );
+                PB_CHECK( process_hello_answer(pb, clnt) );
                 client_portcheck_finish(clnt, PORTCHECK_SUCCESS);
-                return 0;
+                return 1;
 
         default:
                 // skip all unknown packets
-                return 0;
+                return 1;
         }
 
 malformed:
-        return -1;
+        return 0;
 }
 
 void portcheck_read( struct client *clnt )
@@ -120,7 +120,7 @@ void portcheck_read( struct client *clnt )
                                 ret = process_packet(&pb, *data, clnt);
                         } else {
                                 ED2KD_LOGDBG("failed to unpack packet from %s:%u", clnt->dbg.ip_str, clnt->port);
-                                ret = -1;
+                                ret = 0;
                         }
                         free(unpacked);
                 } else {
@@ -128,7 +128,7 @@ void portcheck_read( struct client *clnt )
                         ret = process_packet(&pb, *data, clnt);
                 }
 
-                if (  ret < 0 ) {
+                if ( !ret ) {
                         ED2KD_LOGDBG("client packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
                         client_portcheck_finish(clnt, PORTCHECK_FAILED);
                         return;

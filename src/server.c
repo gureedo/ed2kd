@@ -118,10 +118,10 @@ static int process_login_request( struct packet_buffer *pb, struct client *clnt 
 
         client_portcheck_start(clnt);
 
-        return 0;
+        return 1;
 
 malformed:
-        return -1;
+        return 0;
 }
 
 static int process_offer_files( struct packet_buffer *pb, struct client *clnt )
@@ -130,9 +130,9 @@ static int process_offer_files( struct packet_buffer *pb, struct client *clnt )
         uint32_t count;
         struct pub_file *files, *cur_file;
 
-        if ( token_bucket_update(&clnt->limit_offer, g_srv.cfg->max_offers_limit) ) {
+        if ( !token_bucket_update(&clnt->limit_offer, g_srv.cfg->max_offers_limit) ) {
                 client_delete(clnt);
-                return -1;
+                return 0;
         }
 
         PB_READ_UINT32(pb, count);
@@ -246,10 +246,10 @@ static int process_offer_files( struct packet_buffer *pb, struct client *clnt )
 
         client_share_files(clnt, files, count);
 
-        return 0;
+        return 1;
 
 malformed:
-        return -1;
+        return 0;
 }
 
 static int process_search_request( struct packet_buffer *pb, struct client *clnt )
@@ -257,9 +257,9 @@ static int process_search_request( struct packet_buffer *pb, struct client *clnt
         struct search_node *n, root;
         n = &root;
 
-        if ( token_bucket_update(&clnt->limit_search, g_srv.cfg->max_searches_limit) ) {
+        if ( !token_bucket_update(&clnt->limit_search, g_srv.cfg->max_searches_limit) ) {
                 client_delete(clnt);
-                return -1;
+                return 0;
         }
 
         memset(&root, 0, sizeof(root));
@@ -362,10 +362,10 @@ static int process_search_request( struct packet_buffer *pb, struct client *clnt
         }
 
         client_search_files(clnt, &root);
-        return 0;
+        return 1;
 
 malformed:
-        return -1;
+        return 0;
 }
 
 static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct client *clnt )
@@ -383,37 +383,37 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
                         static const char msg_highid[] = "WARNING: Only HighID clients!";
                         send_server_message(clnt->bev, msg_highid, sizeof(msg_highid) - 1);
                 }
-                PB_CHECK( process_login_request(pb, clnt) >= 0 );
-                return 0;
+                PB_CHECK( process_login_request(pb, clnt) );
+                return 1;
 
         case OP_GETSERVERLIST:
                 send_server_ident(clnt->bev);
                 send_server_list(clnt->bev);
-                return 0;
+                return 1;
 
         case OP_SEARCHREQUEST:
                 process_search_request(pb, clnt);
-                return 0;
+                return 1;
 
         case OP_QUERY_MORE_RESULT:
-                return 0;
+                return 1;
 
         case OP_DISCONNECT:
                 client_delete(clnt);
-                return 0;
+                return 1;
 
         case OP_GETSOURCES:
                 /* todo: bytes left >= ED2K_HASH_SIZE */
                 client_get_sources(clnt, pb->ptr);
-                return 0;
+                return 1;
 
         case OP_OFFERFILES:
-                PB_CHECK( process_offer_files(pb, clnt) >= 0 );
-                return 0;
+                PB_CHECK( process_offer_files(pb, clnt) );
+                return 1;
 
         case OP_CALLBACKREQUEST:
                 // todo: send OP_CALLBACK_FAIL
-                return 0;
+                return 1;
 
         case OP_GETSOURCES_OBFU:
         case OP_REJECT:
@@ -423,7 +423,7 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
 
 malformed:
         ED2KD_LOGDBG("malformed packet (opcode:%u)", opcode);
-        return -1;
+        return 0;
 }
 
 static void server_read( struct client *clnt )
@@ -464,7 +464,7 @@ static void server_read( struct client *clnt )
                                 ret = process_packet(&pb, *data, clnt);
                         } else {
                                 ED2KD_LOGDBG("failed to unpack packet from %s:%u", clnt->dbg.ip_str, clnt->port);
-                                ret = -1;
+                                ret = 0;
                         }
                         free(unpacked);
                 } else {
@@ -472,8 +472,7 @@ static void server_read( struct client *clnt )
                         ret = process_packet(&pb, *data, clnt);
                 }
 
-
-                if (  ret < 0 ) {
+                if ( !ret ) {
                         ED2KD_LOGDBG("server packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
                         client_delete(clnt);
                         return;
@@ -496,7 +495,7 @@ void* server_job_worker( void *ctx )
 {
         (void)ctx;
 
-        if ( db_open() < 0 ) {
+        if ( !db_open() ) {
                 ED2KD_LOGERR("failed to open database");
                 return NULL;
         }
@@ -577,9 +576,8 @@ void* server_job_worker( void *ctx )
         }
 
 exit:
-        if ( db_close() < 0 ) {
+        if ( !db_close() )
                 ED2KD_LOGERR("failed to close database");
-        }
 
         return NULL;
 }

@@ -124,6 +124,7 @@ extern struct server_instance g_srv;
 
 /**
   @brief loads server configuration from given file
+  @param path full or relative path to configuration file
   @return non-zero on success
 */
 int server_load_config( const char *path );
@@ -145,14 +146,19 @@ int server_listen();
 void server_stop();
 
 /**
+  @param arg
+  @return
 */
 void *server_base_worker( void *arg );
 
 /**
+  @param ctx
+  @return
 */
 void *server_job_worker( void *ctx );
 
 /**
+  @param job
 */
 void server_add_job( struct job *job );
 

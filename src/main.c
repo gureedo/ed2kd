@@ -156,7 +156,7 @@ int main( int argc, char *argv[] )
         g_srv.portcheck_timeout_tv = event_base_init_common_timeout(g_srv.evbase_tcp, &g_srv.cfg->portcheck_timeout_tv);
         g_srv.status_notify_tv = event_base_init_common_timeout(g_srv.evbase_tcp, &g_srv.cfg->status_notify_tv);
 
-        if ( db_create() < 0 ) {
+        if ( !db_create() ) {
                 ED2KD_LOGERR("failed to create database");
                 return EXIT_FAILURE;
         }

@@ -30,3 +30,9 @@ max_files = 100000000;
 
 // maximum shared files per client
 max_files_per_client = 20000;
+
+// maximum number of client's file offers per second
+max_offers_limit = 2;
+
+// maximum number of client's search requests per second
+max_searches_limit = 10;

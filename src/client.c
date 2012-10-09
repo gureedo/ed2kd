@@ -89,6 +89,7 @@ void client_delete( struct client *clnt )
 
                 if ( clnt->file_count ) {
                         db_remove_source(clnt);
+                        atomic_sub(&g_srv.file_count, clnt->file_count);
                         clnt->file_count = 0;
                 }
 
@@ -96,8 +97,6 @@ void client_delete( struct client *clnt )
                         HASH_DEL(clnt->shared_files, she);
                         free(she);
                 }
-
-                atomic_sub(&g_srv.file_count, clnt->file_count);
 
                 if ( atomic_dec(&g_srv.user_count)-1 < g_srv.cfg->max_clients ) {
                         evconnlistener_enable(g_srv.tcp_listener);
@@ -226,7 +225,7 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
                         HASH_ADD(hh, clnt->shared_files, hash, sizeof(she->hash), she);
                         real_count++;
                 } else {
-                        // mark as invalid
+                        /* mark as invalid */
                         f->name_len = 0;
                 }
 
