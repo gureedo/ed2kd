@@ -35,7 +35,7 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
 
 #ifdef USE_DEBUG
         evutil_inet_ntop(AF_INET, &(clnt->ip), clnt->dbg.ip_str, sizeof(clnt->dbg.ip_str));
-        ED2KD_LOGDBG("connected ip:%s", clnt->dbg.ip_str);
+        ED2KD_LOGDBG("got connection from ip:%s", clnt->dbg.ip_str);
 #endif
 
         bufferevent_setcb(clnt->bev, server_read_cb, NULL, server_event_cb, clnt);
@@ -50,7 +50,7 @@ static void accept_error_cb( struct evconnlistener *listener, void *ctx )
         (void)listener;
         (void)ctx;
 
-        ED2KD_LOGERR("error %d (%s) on the tcp listener, terminating...", \
+        ED2KD_LOGERR("tcp listener error %d (%s)", \
                 err, evutil_socket_error_to_string(err));
 
         server_stop();

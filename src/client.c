@@ -136,7 +136,7 @@ void client_get_sources( struct client *clnt, const unsigned char *hash )
         struct file_source sources[MAX_FOUND_SOURCES];
         uint8_t src_count = ARRAY_SIZE(sources);
 
-        if (  db_get_sources(hash, sources, &src_count) )
+        if ( db_get_sources(hash, sources, &src_count) )
                 send_found_sources(clnt->bev, hash, sources, src_count);
 }
 

@@ -25,7 +25,6 @@ static void dummy_cb( evutil_socket_t fd, short what, void *ctx )
 void *server_base_worker( void * arg )
 {
         // todo: after moving to libevent 2.1.x replace timer below with EVLOOP_NO_EXIT_ON_EMPTY flag
-
         struct event_base *evbase = (struct event_base *)arg;
         struct timeval tv = {500, 0};
         struct event *ev_dummy = event_new(evbase, -1, EV_PERSIST, dummy_cb, 0);
@@ -129,11 +128,6 @@ static int process_offer_files( struct packet_buffer *pb, struct client *clnt )
         size_t i;
         uint32_t count;
         struct pub_file *files, *cur_file;
-
-        if ( !token_bucket_update(&clnt->limit_offer, g_srv.cfg->max_offers_limit) ) {
-                client_delete(clnt);
-                return 0;
-        }
 
         PB_READ_UINT32(pb, count);
         PB_CHECK(count <= 200 );
@@ -256,11 +250,6 @@ static int process_search_request( struct packet_buffer *pb, struct client *clnt
 {
         struct search_node *n, root;
         n = &root;
-
-        if ( !token_bucket_update(&clnt->limit_search, g_srv.cfg->max_searches_limit) ) {
-                client_delete(clnt);
-                return 0;
-        }
 
         memset(&root, 0, sizeof(root));
 
@@ -392,6 +381,11 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
                 return 1;
 
         case OP_SEARCHREQUEST:
+                if ( !token_bucket_update(&clnt->limit_search, g_srv.cfg->max_searches_limit) ) {
+                        ED2KD_LOGDBG("search limit reached for %u", clnt->id);
+                        client_delete(clnt);
+                        return 0;
+                }
                 process_search_request(pb, clnt);
                 return 1;
 
@@ -403,26 +397,36 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
                 return 1;
 
         case OP_GETSOURCES:
-                /* todo: bytes left >= ED2K_HASH_SIZE */
+                PB_CHECK( PB_LEFT(pb) == ED2K_HASH_SIZE );
                 client_get_sources(clnt, pb->ptr);
                 return 1;
 
         case OP_OFFERFILES:
+                if ( !token_bucket_update(&clnt->limit_offer, g_srv.cfg->max_offers_limit) ) {
+                        ED2KD_LOGDBG("offer limit reached for %u", clnt->id);
+                        client_delete(clnt);
+                        return 0;
+                }
                 PB_CHECK( process_offer_files(pb, clnt) );
                 return 1;
 
         case OP_CALLBACKREQUEST:
-                // todo: send OP_CALLBACK_FAIL
+                send_callback_fail(clnt->bev);
                 return 1;
 
         case OP_GETSOURCES_OBFU:
+                return 1;
+
         case OP_REJECT:
+                return 1;
+
         default:
                 PB_CHECK(0);
         }
 
 malformed:
-        ED2KD_LOGDBG("malformed packet (opcode:%u)", opcode);
+        ED2KD_LOGDBG("malformed tcp packet (opcode:%u)", opcode);
+        client_delete(clnt);
         return 0;
 }
 
@@ -472,11 +476,8 @@ static void server_read( struct client *clnt )
                         ret = process_packet(&pb, *data, clnt);
                 }
 
-                if ( !ret ) {
-                        ED2KD_LOGDBG("server packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
-                        client_delete(clnt);
+                if ( !ret )
                         return;
-                }
 
                 evbuffer_drain(input, packet_len);
                 src_len = evbuffer_get_length(input);
@@ -534,7 +535,7 @@ void* server_job_worker( void *ctx )
                         case JOB_SERVER_EVENT: {
                                 struct job_event *j = (struct job_event*)job;
                                 //ED2KD_LOGDBG("JOB_SERVER_EVENT event");
-                                server_event(job->clnt, j->events);
+                                server_event(j->hdr.clnt, j->events);
                                 break;
                         }
 
@@ -564,6 +565,7 @@ void* server_job_worker( void *ctx )
                         case JOB_PORTCHECK_TIMEOUT:
                                 portcheck_timeout(job->clnt);
                                 break;
+
                         default:
                                 assert(0);
                                 break;

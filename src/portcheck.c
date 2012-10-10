@@ -50,8 +50,8 @@ static void send_hello( struct client *clnt )
 
 static int process_hello_answer( struct packet_buffer *pb, struct client *clnt )
 {
+        PB_CHECK( PB_LEFT(pb) > ED2K_HASH_SIZE );
         PB_CHECK( memcmp(clnt->hash, pb->ptr, ED2K_HASH_SIZE) == 0 );
-        PB_SEEK(pb, ED2K_HASH_SIZE);
 
         return 1;
 
@@ -65,14 +65,13 @@ static int process_packet( struct packet_buffer *pb, uint8_t opcode, struct clie
         case OP_HELLOANSWER:
                 PB_CHECK( process_hello_answer(pb, clnt) );
                 client_portcheck_finish(clnt, PORTCHECK_SUCCESS);
-                return 1;
-
-        default:
-                // skip all unknown packets
-                return 1;
+                break;
         }
 
+        return 1;
+
 malformed:
+        ED2KD_LOGDBG("malformed portcheck packet (opcode:%u)", opcode);
         return 0;
 }
 
@@ -101,8 +100,8 @@ void portcheck_read( struct client *clnt )
                         return;
                 }
 
-                // wait for full length packet
-                packet_len = header->length + sizeof(struct packet_header);
+                /* wait for full length packet */
+                packet_len = header->length + sizeof(*header);
                 if ( packet_len > src_len )
                         return;
 
@@ -129,7 +128,6 @@ void portcheck_read( struct client *clnt )
                 }
 
                 if ( !ret ) {
-                        ED2KD_LOGDBG("client packet parsing error (%s:%u)", clnt->dbg.ip_str, clnt->port);
                         client_portcheck_finish(clnt, PORTCHECK_FAILED);
                         return;
                 }

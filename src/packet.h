@@ -65,6 +65,9 @@ struct packet_buffer {
 #define PB_CHECK(stmt) \
         if ( !(stmt) ) goto malformed
 
+#define PB_LEFT(pb) \
+        ((pb)->end - (pb)->ptr)
+
 #define PB_SEEK(pb, off)               \
         (pb)->ptr += off;                  \
         PB_CHECK( (pb)->ptr <= (pb)->end )
