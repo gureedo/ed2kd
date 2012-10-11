@@ -25,7 +25,7 @@ SET(SOURCES
     src/packet.c
     src/portcheck.c
     src/server.c
-    src/server_listener.c
+    src/listener.c
     src/util.c
     src/sqlite3/sqlite3.c
     src/db_sqlite.c
