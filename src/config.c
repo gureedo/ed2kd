@@ -1,4 +1,4 @@
-#include "config.h"
+#include "server.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -6,7 +6,7 @@
 #include <event2/util.h>
 
 #include "log.h"
-#include "server.h"
+
 #include "ed2k_proto.h"
 #include "version.h"
 #include "util.h"

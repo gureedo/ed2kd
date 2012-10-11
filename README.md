@@ -8,10 +8,6 @@ eDonkey2000 server.
 
 Anyway you can try to build it in another little-endian OS.
 
-### Supported databases
-
-- [sqlite3](http://sqlite.org), >=3.7.12 with FTS4 support and unicode61 tokenizer
-
 ### Build instructions
 
 You need the following libraries installed:

@@ -1,7 +1,9 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7)
 PROJECT(ed2kd C)
 
-OPTION(BACKEND "Backend database" OFF)
+if(CMAKE_BINARY_DIR STREQUAL ${CMAKE_SOURCE_DIR})
+        message( FATAL_ERROR "Building in source dir prohibited. Remove CMakeCache.txt and try 'mkdir build && cd build && cmake ..'." )
+endif()
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
     ${CMAKE_SOURCE_DIR}/cmake/modules)
@@ -25,18 +27,17 @@ SET(SOURCES
     src/server.c
     src/server_listener.c
     src/util.c
+    src/sqlite3/sqlite3.c
+    src/db_sqlite.c
 )
 
-IF( ${BACKEND} STREQUAL "sqlite3" )
-    LIST(APPEND SOURCES src/sqlite3/sqlite3.c src/db_sqlite.c)
-    ADD_DEFINITIONS(-DSQLITE_THREADSAFE=1 -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_FTS4_UNICODE61 -DSQLITE_OMIT_LOAD_EXTENSION)
-
-ELSEIF( ${BACKEND} STREQUAL "mysql" )
-    MESSAGE(FATAL_ERROR "Not yet implemented")
-
-ELSE()
-    MESSAGE(FATAL_ERROR "Backend database not selected")
-ENDIF()
+ADD_DEFINITIONS(
+    -DSQLITE_THREADSAFE=1
+    -DSQLITE_ENABLE_FTS4
+    -DSQLITE_ENABLE_FTS3_PARENTHESIS
+    -DSQLITE_ENABLE_FTS4_UNICODE61
+    -DSQLITE_OMIT_LOAD_EXTENSION
+)
 
 INCLUDE_DIRECTORIES(${INCLUDES})
 ADD_EXECUTABLE(ed2kd ${SOURCES})
@@ -46,6 +47,7 @@ IF( CMAKE_COMPILER_IS_GNUCC )
     LIST(APPEND LIBS ${M_LIB})
     SET_TARGET_PROPERTIES(ed2kd PROPERTIES LINK_FLAGS "-fopenmp")
 ENDIF()
+
 TARGET_LINK_LIBRARIES(ed2kd ${LIBS})
 
 INSTALL(TARGETS ed2kd

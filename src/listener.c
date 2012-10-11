@@ -18,6 +18,7 @@ static void accept_cb( struct evconnlistener *listener, evutil_socket_t fd, stru
         struct bufferevent *bev;
 
         (void)listener;
+        (void)socklen;
         (void)ctx;
 
         assert( AF_INET == sa->sa_family );

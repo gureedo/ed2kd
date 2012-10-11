@@ -27,19 +27,17 @@ SOURCES += \
         src/packet.c \
         src/portcheck.c \
         src/server.c \
-        src/server_listener.c \
         src/sqlite3/sqlite3.c \
-        src/util.c
+        src/util.c \
+    src/listener.c
 
 HEADERS  += \
         src/atomic.h \
         src/client.h \
-        src/config.h \
         src/db.h \
         src/ed2k_proto.h \
         src/job.h \
         src/log.h \
-        src/login.h \
         src/packed_struct.h \
         src/packet.h \
         src/portcheck.h \
