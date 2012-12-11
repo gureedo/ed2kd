@@ -1,6 +1,7 @@
 #ed2kd
 
 eDonkey2000 server.
+Curreently server is not finished and unstable
 
 ### Supported platforms
 - Windows
@@ -17,4 +18,7 @@ You need the following libraries installed:
 
 Build using cmake:
 
-cmake . -DDB_BACKEND=\<db_name\>
+mkdir build
+cd build
+cmake ..
+make
