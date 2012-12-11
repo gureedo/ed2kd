@@ -1,7 +1,7 @@
 #ed2kd
 
 eDonkey2000 server.
-Curreently server is not finished and unstable
+Currently server is not finished and unstable.
 
 ### Supported platforms
 - Windows
