@@ -18,7 +18,9 @@ You need the following libraries installed:
 
 Build using cmake:
 
+```shell
 mkdir build
 cd build
 cmake ..
 make
+```
