@@ -170,8 +170,6 @@ int server_load_config( const char *path )
                         ED2KD_LOGERR("config: " CFG_MAX_SEARCHES_LIMIT " missing");
                         ret = 0;
                 }
-
-
         } else {
                 ED2KD_LOGWRN("config: failed to parse %s(error:%s at %d line)", path,
                         config_error_text(&config), config_error_line(&config));
@@ -180,7 +178,7 @@ int server_load_config( const char *path )
 
         config_destroy(&config);
 
-        if ( ret < 0 ) {
+        if ( !ret ) {
                 free(server_cfg);
         } else {
                 server_cfg->srv_tcp_flags = SRV_TCPFLG_COMPRESSION | SRV_TCPFLG_TYPETAGINTEGER | SRV_TCPFLG_LARGEFILES;

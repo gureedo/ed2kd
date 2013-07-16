@@ -51,13 +51,13 @@
     <ClCompile Include="..\src\packet.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\server_listener.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\job.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\sqlite3\sqlite3.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\listener.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

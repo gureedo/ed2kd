@@ -148,8 +148,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\src\job.c" />
+    <ClCompile Include="..\src\listener.c" />
     <ClCompile Include="..\src\log.c" />
-    <ClCompile Include="..\src\server_listener.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\packet.c" />
     <ClCompile Include="..\src\portcheck.c" />
