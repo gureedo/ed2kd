@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef PACKED_STRUCT_H
 #define PACKED_STRUCT_H
 

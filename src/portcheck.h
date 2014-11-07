@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef PORTCHECK_H
 #define PORTCHECK_H
 
