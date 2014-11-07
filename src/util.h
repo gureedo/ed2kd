@@ -70,7 +70,7 @@ struct token_bucket {
 @param bucket pinter to target bucket
 @param max_tokens initial number of tokens in bucket (tokens per second)
 */
-static __inline void token_bucket_init(struct token_bucket *bucket, double tokens)
+static inline void token_bucket_init(struct token_bucket *bucket, double tokens)
 {
     bucket->last_update = time(NULL);
     bucket->tokens = tokens;

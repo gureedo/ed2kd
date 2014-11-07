@@ -1,12 +1,9 @@
 #include "server.h"
 #include <string.h>
 #include <stdlib.h>
-
 #include <libconfig.h>
-#include <event2/util.h>
 
 #include "log.h"
-
 #include "ed2k_proto.h"
 #include "version.h"
 #include "util.h"
@@ -213,7 +210,7 @@ int server_load_config(const char *path)
     return ret;
 }
 
-void server_free_config()
+void server_free_config(void)
 {
     struct server_config *cfg = (struct server_config *) g_srv.cfg;
     g_srv.cfg = NULL;

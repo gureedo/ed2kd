@@ -72,22 +72,22 @@ struct search_node {
 /**
 @return non-zero on success
 */
-int db_create();
+int db_create(void);
 
 /**
 @return non-zero on success
 */
-int db_destroy();
+int db_destroy(void);
 
 /**
 @return non-zero on success
 */
-int db_open();
+int db_open(void);
 
 /**
 @return non-zero on success
 */
-int db_close();
+int db_close(void);
 
 /**
 @return non-zero on success

@@ -126,18 +126,18 @@ int server_load_config(const char *path);
 /**
 @brief frees server configuration
 */
-void server_free_config();
+void server_free_config(void);
 
 /**
 @brief start main loop and accept incoming connections
 @return non-zero on success
 */
-int server_listen();
+int server_listen(void);
 
 /**
 @brief breaks all running event loops
 */
-void server_stop();
+void server_stop(void);
 
 /**
 @param arg

@@ -12,8 +12,6 @@
 #include "portcheck.h"
 #include "db.h"
 #include "log.h"
-#include "util.h"
-
 
 static void dummy_cb(evutil_socket_t fd, short what, void *ctx)
 {
@@ -585,7 +583,7 @@ void *server_job_worker(void *ctx)
     return NULL;
 }
 
-void server_stop()
+void server_stop(void)
 {
     event_base_loopbreak(g_srv.evbase_main);
     event_base_loopbreak(g_srv.evbase_tcp);

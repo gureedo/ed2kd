@@ -79,7 +79,7 @@ struct client {
 @brief allocates and initializes empty client structure
 @return pointer to new client structure
 */
-struct client *client_new();
+struct client *client_new(void);
 
 void client_delete(struct client *clnt);
 

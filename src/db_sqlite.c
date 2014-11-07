@@ -1,13 +1,11 @@
 #include "db.h"
 #include <string.h>
-#include <malloc.h>
 
 #include "sqlite3/sqlite3.h"
 #include "ed2k_proto.h"
 #include "packet.h"
 #include "log.h"
 #include "client.h"
-#include "util.h"
 
 static uint64_t sdbm(const unsigned char *str, size_t length)
 {
@@ -46,7 +44,7 @@ s_db;
 static THREAD_LOCAL sqlite3_stmt
 *s_stmt[STMT_COUNT];
 
-int db_create()
+int db_create(void)
 {
     static const char query[] =
             "PRAGMA synchronous = 0;"
@@ -145,7 +143,7 @@ int db_create()
     return 1;
 }
 
-int db_open()
+int db_open(void)
 {
     int err;
     const char *tail;
@@ -181,12 +179,12 @@ int db_open()
     return 0;
 }
 
-int db_destroy()
+int db_destroy(void)
 {
     return SQLITE_OK == sqlite3_close(s_db);
 }
 
-int db_close()
+int db_close(void)
 {
     size_t i;
 

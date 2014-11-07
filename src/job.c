@@ -1,13 +1,8 @@
 #include "job.h"
-#include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include <event2/event.h>
 #include "server.h"
 #include "client.h"
-#include "log.h"
-
 
 void server_read_cb(struct bufferevent *bev, void *ctx)
 {

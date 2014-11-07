@@ -1,11 +1,4 @@
 #include "client.h"
-#include <string.h>
-
-#ifdef __GNUC__
-
-#include <alloca.h>
-
-#endif
 
 #include <event2/event.h>
 #include <event2/buffer.h>
@@ -15,10 +8,8 @@
 #include "ed2k_proto.h"
 #include "server.h"
 #include "packet.h"
-#include "version.h"
 #include "log.h"
 #include "db.h"
-#include "util.h"
 
 struct shared_file_entry {
     /* key */
@@ -27,7 +18,7 @@ struct shared_file_entry {
     UT_hash_handle hh;
 };
 
-static uint32_t get_next_lowid()
+static uint32_t get_next_lowid(void)
 {
     uint32_t old_id, new_id;
 
@@ -41,7 +32,7 @@ static uint32_t get_next_lowid()
     return new_id;
 }
 
-struct client *client_new()
+struct client *client_new(void)
 {
     struct client *clnt = (struct client *) calloc(1, sizeof(*clnt));
 

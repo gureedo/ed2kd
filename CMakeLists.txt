@@ -1,22 +1,33 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7)
-PROJECT(ed2kd C)
+cmake_minimum_required(VERSION 2.8.7)
+project(ed2kd C)
 
 if(CMAKE_BINARY_DIR STREQUAL ${CMAKE_SOURCE_DIR})
         message( FATAL_ERROR "Building in source dir prohibited. Remove CMakeCache.txt and try 'mkdir build && cd build && cmake ..'." )
 endif()
 
+if (NOT CMAKE_BUILD_TYPE)
+    message(STATUS "No build type selected, default to RelWithDebInfo")
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+endif()
+
+if (NOT CMAKE_INSTALL_PREFIX)
+    message(STATUS "No install prefix provided, default to /usr/local")
+    set(CMAKE_INSTALL_PREFIX  /usr/local)
+endif()
+
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
     ${CMAKE_SOURCE_DIR}/cmake/modules)
 
-FIND_PACKAGE(Libevent REQUIRED core pthreads)
-FIND_PACKAGE(Libconfig 1.4.8 REQUIRED)
-FIND_PACKAGE(ZLIB REQUIRED)
+find_package(Threads REQUIRED)
+find_package(Libevent REQUIRED core pthreads)
+find_package(Libconfig 1.4.8 REQUIRED)
+find_package(ZLIB REQUIRED)
 
-SET(INCLUDES ${LIBEVENT_INCLUDE_DIRS} ${LIBCONFIG_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+set(INCLUDES ${LIBEVENT_INCLUDE_DIRS} ${LIBCONFIG_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
 
-SET(LIBS ${LIBCONFIG_LIBRARIES} ${LIBEVENT_LIBRARIES} ${ZLIB_LIBRARIES} )
+set(LIBS ${LIBCONFIG_LIBRARIES} ${LIBEVENT_LIBRARIES} ${ZLIB_LIBRARIES} )
 
-SET(SOURCES
+set(SOURCES
     src/client.c
     src/config.c
     src/job.c
@@ -31,7 +42,7 @@ SET(SOURCES
     src/db_sqlite.c
 )
 
-ADD_DEFINITIONS(
+add_definitions(
     -DSQLITE_THREADSAFE=1
     -DSQLITE_ENABLE_FTS4
     -DSQLITE_ENABLE_FTS3_PARENTHESIS
@@ -39,17 +50,19 @@ ADD_DEFINITIONS(
     -DSQLITE_OMIT_LOAD_EXTENSION
 )
 
-INCLUDE_DIRECTORIES(${INCLUDES})
-ADD_EXECUTABLE(ed2kd ${SOURCES})
+include_directories(${INCLUDES})
+add_executable(ed2kd ${SOURCES})
 
-IF( CMAKE_COMPILER_IS_GNUCC )
-    FIND_LIBRARY(M_LIB m)
-    LIST(APPEND LIBS ${M_LIB})
-    SET_TARGET_PROPERTIES(ed2kd PROPERTIES LINK_FLAGS "-fopenmp")
-ENDIF()
+find_library(M_LIB m)
+list(APPEND LIBS ${M_LIB})
+set_target_properties(ed2kd PROPERTIES LINK_FLAGS "-fopenmp")
 
-TARGET_LINK_LIBRARIES(ed2kd ${LIBS})
+set(CMAKE_C_FLAGS_RELEASE "-Ofast -flto -march=native -funroll-loops -DNDEBUG")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "-g -Ofast -flto -march=native -funroll-loops -DNDEBUG")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11 -Wall -Wextra -fno-fast-math ")
 
-INSTALL(TARGETS ed2kd
+target_link_libraries(ed2kd ${LIBS})
+
+install(TARGETS ed2kd
     RUNTIME DESTINATION bin
 )
