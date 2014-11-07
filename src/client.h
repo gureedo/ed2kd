@@ -54,11 +54,11 @@ struct client {
         struct event *evtimer_status_notify;
 
         /* lock flag */
-        volatile atomic32_t locked;
+        atomic_uint32_t locked;
         /* references counter */
-        volatile atomic32_t ref_cnt;
+        atomic_uint32_t ref_cnt;
         /* marked for remove flag */
-        volatile atomic32_t deleted;
+        atomic_uint32_t deleted;
 
         /* offer limit */
         struct token_bucket limit_offer;
@@ -85,12 +85,12 @@ void client_delete( struct client *clnt );
 
 static __inline void client_addref( struct client *clnt )
 {
-        atomic_inc(&clnt->ref_cnt);
+    atomic_fetch_add(&clnt->ref_cnt, 1);
 }
 
 static __inline void client_decref( struct client *clnt )
 {
-        if ( !atomic_dec(&clnt->ref_cnt) && atomic_load(&clnt->deleted) )
+        if ( !atomic_fetch_sub(&clnt->ref_cnt, 1)-1 && atomic_load(&clnt->deleted) )
                 client_delete(clnt);
 }
 

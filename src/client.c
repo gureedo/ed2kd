@@ -26,14 +26,14 @@ struct shared_file_entry {
 
 static uint32_t get_next_lowid()
 {
-        atomic32_t old_id, new_id;
+        uint32_t old_id, new_id;
 
         do {
                 old_id = atomic_load(&g_srv.lowid_counter);
                 new_id = old_id + 1;
                 if ( new_id > MAX_LOWID )
                         new_id = 1;
-        } while ( !atomic_cas(&g_srv.lowid_counter, new_id, old_id) );
+        } while ( !atomic_compare_exchange_strong(&g_srv.lowid_counter, &old_id, new_id) );
 
         return new_id;
 }
@@ -42,7 +42,7 @@ struct client *client_new()
 {
         struct client *clnt = (struct client*)calloc(1, sizeof(*clnt));
 
-        if ( atomic_inc(&g_srv.user_count)+1 >= g_srv.cfg->max_clients ) {
+        if ( atomic_fetch_add(&g_srv.user_count, 1)+1 >= g_srv.cfg->max_clients ) {
                 evconnlistener_disable(g_srv.tcp_listener);
         }
 
@@ -55,8 +55,9 @@ struct client *client_new()
 void client_delete( struct client *clnt )
 {
         struct shared_file_entry *she, *she_tmp;
+        uint32_t old_val = 0;
 
-        if ( 0 == atomic_store(&clnt->deleted, 1) ) {
+        if ( atomic_compare_exchange_strong(&clnt->deleted, &old_val, 1) ) {
                 // disable all events
                 if ( clnt->bev )
                         bufferevent_disable(clnt->bev, EV_READ|EV_WRITE);
@@ -89,7 +90,7 @@ void client_delete( struct client *clnt )
 
                 if ( clnt->file_count ) {
                         db_remove_source(clnt);
-                        atomic_sub(&g_srv.file_count, clnt->file_count);
+                        atomic_fetch_sub(&g_srv.file_count, clnt->file_count);
                         clnt->file_count = 0;
                 }
 
@@ -98,7 +99,7 @@ void client_delete( struct client *clnt )
                         free(she);
                 }
 
-                if ( atomic_dec(&g_srv.user_count)-1 < g_srv.cfg->max_clients ) {
+                if (atomic_fetch_sub(&g_srv.user_count, 1)-1 < g_srv.cfg->max_clients ) {
                         evconnlistener_enable(g_srv.tcp_listener);
                 }
         }
@@ -235,6 +236,6 @@ void client_share_files( struct client *clnt, struct pub_file *files, size_t cou
         if ( db_share_files(files, count, clnt) ) {
                 ED2KD_LOGDBG("client %u: published %u files, %u duplicates", clnt->id, count, count-real_count);
                 clnt->file_count += real_count;
-                atomic_add(&g_srv.file_count, real_count);
+                atomic_fetch_add(&g_srv.file_count, real_count);
         }
 }

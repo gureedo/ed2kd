@@ -93,14 +93,14 @@ struct server_instance {
         /* working threads count */
         size_t thread_count;
         /* connected users count */
-        volatile atomic32_t user_count;
+        atomic_uint32_t user_count;
         /* shared files count */
-        volatile atomic32_t file_count;
+        atomic_uint32_t file_count;
         /* lowid counter */
-        volatile atomic32_t lowid_counter;
+        atomic_uint32_t lowid_counter;
 
         /* termination flag */
-        volatile atomic32_t terminate;
+        atomic_uint32_t terminate;
         /* job queue mutex */
         pthread_mutex_t job_mutex;
         /* job access condition */

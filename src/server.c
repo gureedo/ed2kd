@@ -514,7 +514,8 @@ void* server_job_worker( void *ctx )
                         }
 
                         TAILQ_FOREACH_SAFE( j, &g_srv.jqueue, qentry, jtmp ) {
-                                if ( atomic_cas(&j->clnt->locked, 1, 0) ) {
+                                uint32_t old_val = 0;
+                                if (atomic_compare_exchange_strong(&j->clnt->locked, &old_val, 1) ) {
                                         TAILQ_REMOVE(&g_srv.jqueue, j, qentry);
                                         job = j;
                                         break;
