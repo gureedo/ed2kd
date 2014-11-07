@@ -1,15 +1,2 @@
-# msvc
-ipch
-*.suo
-*.sdf
-*.opensdf
-*.user
-
-# folders
-3rdparty
-lib
-bin
-junk
-doxy
-
-cmake.build
+/.idea
+/build
