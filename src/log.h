@@ -5,12 +5,12 @@ enum log_severity {
 #ifdef USE_DEBUG
         LOG_DBG,
 #endif
-        LOG_NFO,
-        LOG_WRN,
-        LOG_ERR
+    LOG_NFO,
+    LOG_WRN,
+    LOG_ERR
 };
 
-void _ed2kd_log( enum log_severity svrt, const char *fmt, ... );
+void _ed2kd_log(enum log_severity svrt, const char *fmt, ...);
 
 #ifdef _MSC_VER
 #define ED2KD_LOGNFO(msg, ...) _ed2kd_log(LOG_NFO, msg, __VA_ARGS__)

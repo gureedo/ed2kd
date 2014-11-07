@@ -9,48 +9,49 @@ struct evbuffer;
 struct file_source;
 
 struct search_file {
-        const unsigned char *hash;
-        uint32_t        client_id;
-        uint16_t        client_port;
-        uint16_t        name_len;
-        const char      *name;
-        uint64_t        size;
-        uint32_t        type;
-        uint32_t        rating;
-        uint32_t        rated_count;
-        uint16_t        ext_len;
-        const char      *ext;
-        uint32_t        media_length;
-        uint32_t        media_bitrate;
-        uint16_t        media_codec_len;
-        const char      *media_codec;
-        uint32_t        srcavail;
-        uint32_t        srccomplete;
+    const unsigned char *hash;
+    uint32_t client_id;
+    uint16_t client_port;
+    uint16_t name_len;
+    const char *name;
+    uint64_t size;
+    uint32_t type;
+    uint32_t rating;
+    uint32_t rated_count;
+    uint16_t ext_len;
+    const char *ext;
+    uint32_t media_length;
+    uint32_t media_bitrate;
+    uint16_t media_codec_len;
+    const char *media_codec;
+    uint32_t srcavail;
+    uint32_t srccomplete;
 };
 
-void send_id_change( struct bufferevent *bev, uint32_t id );
+void send_id_change(struct bufferevent *bev, uint32_t id);
 
-void send_server_message( struct bufferevent *bev, const char *msg, uint16_t len );
+void send_server_message(struct bufferevent *bev, const char *msg, uint16_t len);
 
-void send_server_status( struct bufferevent *bev );
+void send_server_status(struct bufferevent *bev);
 
-void send_server_ident( struct bufferevent *bev );
+void send_server_ident(struct bufferevent *bev);
 
-void send_server_list( struct bufferevent *bev );
+void send_server_list(struct bufferevent *bev);
 
-void send_reject( struct bufferevent *bev );
+void send_reject(struct bufferevent *bev);
 
-void send_callback_fail( struct bufferevent *bev );
+void send_callback_fail(struct bufferevent *bev);
 
-void send_found_sources( struct bufferevent *bev, const unsigned char *hash, struct file_source *sources, size_t count );
+void send_found_sources(struct bufferevent *bev, const unsigned char *hash, struct file_source *sources, size_t count);
 
-void send_search_result( struct bufferevent *bev, struct evbuffer *result, size_t count );
+void send_search_result(struct bufferevent *bev, struct evbuffer *result, size_t count);
 
-void write_search_file( struct evbuffer *buf, const struct search_file *file );
+void write_search_file(struct evbuffer *buf, const struct search_file *file);
 
 struct packet_buffer {
-        const unsigned char *ptr; /**< current location pointer */
-        const unsigned char *end; /**< buffer end pinter */
+    const unsigned char *ptr;
+    /**< current location pointer */
+    const unsigned char *end; /**< buffer end pinter */
 };
 
 #define PB_INIT(pb, buf, len)  \
@@ -96,12 +97,12 @@ struct packet_buffer {
 #define PB_PTR_UINT64(pb)       *(uint64_t*)(pb)->ptr
 
 #define PB_READ_STRING(pb, dst, max_len) \
-{	\
-        uint16_t _pb_len;	\
-        PB_READ_UINT16((pb), _pb_len);	\
-        (max_len) = _pb_len > (max_len) ? (max_len) : _pb_len;	\
-        memcpy((dst), pb->ptr, (max_len));	\
-        PB_SEEK(pb, _pb_len);	\
+{    \
+        uint16_t _pb_len;    \
+        PB_READ_UINT16((pb), _pb_len);    \
+        (max_len) = _pb_len > (max_len) ? (max_len) : _pb_len;    \
+        memcpy((dst), pb->ptr, (max_len));    \
+        PB_SEEK(pb, _pb_len);    \
 }
 
 #define PB_SKIP_TAGHDR_INT(pb) \
