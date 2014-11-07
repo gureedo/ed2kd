@@ -7,11 +7,7 @@
 
 #include <stdint.h>
 #include <pthread.h>
-#ifdef _WIN32
-#include <winsock2.h>
-#else
 #include <sys/time.h>
-#endif
 #include "job.h"
 #include "atomic.h"
 

@@ -2,9 +2,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <getopt.h>
-#if defined(_WIN32)
-#include <winsock2.h>
-#endif
 #include <omp.h>
 
 #include <event2/event.h>
@@ -75,9 +72,6 @@ int main( int argc, char *argv[] )
         size_t i;
         int ret, opt, longIndex = 0;
         struct event *evsig_int;
-#ifdef _WIN32
-        WSADATA WSAData;
-#endif
         pthread_t tcp_thread, *job_threads;
 
         if ( evutil_secure_rng_init() < 0 ) {
@@ -112,13 +106,6 @@ int main( int argc, char *argv[] )
                 opt = getopt_long( argc, argv, optString, longOpts, &longIndex );
         }
 
-#ifdef _WIN32
-        if ( 0 != WSAStartup(0x0201, &WSAData) ) {
-                ED2KD_LOGERR("WSAStartup failed!");
-                return EXIT_FAILURE;
-        }
-#endif
-
         if ( !server_load_config(NULL) ) {
                 ED2KD_LOGERR("failed to load configuration file");
                 return EXIT_FAILURE;
@@ -126,13 +113,7 @@ int main( int argc, char *argv[] )
 
         display_libevent_info();
 
-#ifdef EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED
-        ret = evthread_use_windows_threads();
-#elif EVTHREAD_USE_PTHREADS_IMPLEMENTED
         ret = evthread_use_pthreads();
-#else
-#error "unable to determine threading model"
-#endif
         if ( ret < 0 ) {
                 ED2KD_LOGERR("failed to init libevent threading model");
                 return EXIT_FAILURE;

@@ -1,12 +1,6 @@
 #ifndef ATOMIC_H
 #define ATOMIC_H
 
-#ifdef _WIN32
-#include <windows.h>
-#elif !defined(__GNUC__)
-#error "dont know how to implement atomic operations"
-#endif
-
 typedef unsigned long atomic32_t;
 
 /**
@@ -16,13 +10,8 @@ typedef unsigned long atomic32_t;
 */
 static __inline atomic32_t atomic_store( volatile atomic32_t *ptr, atomic32_t val )
 {
-#ifdef _WIN32
-        return InterlockedExchange(ptr, val);
-#else
         __sync_synchronize();
         return __sync_lock_test_and_set(ptr, val);
-
-#endif
 }
 
 /**
@@ -30,11 +19,7 @@ static __inline atomic32_t atomic_store( volatile atomic32_t *ptr, atomic32_t va
 */
 static __inline atomic32_t atomic_add( volatile atomic32_t *ptr, atomic32_t val )
 {
-#ifdef _WIN32
-        return InterlockedExchangeAdd(ptr, val);
-#else
         return __sync_fetch_and_add(ptr, val);
-#endif
 }
 
 /**
@@ -63,11 +48,7 @@ static __inline atomic32_t atomic_add( volatile atomic32_t *ptr, atomic32_t val 
 */
 static __inline int atomic_cas( volatile atomic32_t *ptr, atomic32_t new_val, atomic32_t old_val )
 {
-#ifdef _WIN32
-        return (InterlockedCompareExchange(ptr, new_val, old_val) == old_val) ? 1 : 0;
-#else
         return (__sync_val_compare_and_swap(ptr, old_val, new_val) == old_val) ? 1 : 0;
-#endif
 }
 
 #endif // ATOMIC_H
