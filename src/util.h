@@ -15,13 +15,7 @@
 #define DEBUG_ONLY(x)
 #endif
 
-#if defined(_MSC_VER)
-#define THREAD_LOCAL __declspec(thread)
-#elif defined(__GNUC__)
 #define THREAD_LOCAL __thread
-#else
-#error "unknown compiler"
-#endif
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
