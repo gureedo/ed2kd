@@ -6,7 +6,6 @@
 */
 
 #include <stdint.h>
-#include "packed_struct.h"
 
 #define MAX_LOWID 0x1000000
 #define EDONKEYVERSION 0x3c
@@ -80,129 +79,103 @@ enum packet_opcode {
     //OP_FOUNDSOURCES_OBFU          = 0x44
 };
 
-PACKED_STRUCT(
-        struct file_source {
-            uint32_t ip;
-            uint16_t port;
-        }
-);
+struct file_source {
+    uint32_t ip;
+    uint16_t port;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_header {
-            uint8_t proto;
-            uint32_t length;
-        }
-);
+struct packet_header {
+    uint8_t proto;
+    uint32_t length;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_server_message {
-            struct packet_header hdr;
-            uint8_t opcode;
-            uint16_t msg_len;
-        }
-);
+struct packet_server_message {
+    struct packet_header hdr;
+    uint8_t opcode;
+    uint16_t msg_len;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_id_change {
-            struct packet_header hdr;
-            uint8_t opcode;
-            uint32_t user_id;
-            uint32_t tcp_flags;
-        }
-);
+struct packet_id_change {
+    struct packet_header hdr;
+    uint8_t opcode;
+    uint32_t user_id;
+    uint32_t tcp_flags;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_server_status {
-            struct packet_header hdr;
-            uint8_t opcode;
-            uint32_t user_count;
-            uint32_t file_count;
-        }
-);
+struct packet_server_status {
+    struct packet_header hdr;
+    uint8_t opcode;
+    uint32_t user_count;
+    uint32_t file_count;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_server_ident {
-            struct packet_header hdr;
-            uint8_t opcode;
-            unsigned char hash[ED2K_HASH_SIZE];
-            uint32_t ip;
-            uint16_t port;
-            uint32_t tag_count;
-        }
-);
+struct packet_server_ident {
+    struct packet_header hdr;
+    uint8_t opcode;
+    unsigned char hash[ED2K_HASH_SIZE];
+    uint32_t ip;
+    uint16_t port;
+    uint32_t tag_count;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_search_result {
-            struct packet_header hdr;
-            uint8_t opcode;
-            uint32_t files_count;
-        }
-);
+struct packet_search_result {
+    struct packet_header hdr;
+    uint8_t opcode;
+    uint32_t files_count;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct search_file_entry {
-            unsigned char hash[ED2K_HASH_SIZE];
-            uint32_t id;
-            uint16_t port;
-            uint32_t tag_count;
-        }
-);
+struct search_file_entry {
+    unsigned char hash[ED2K_HASH_SIZE];
+    uint32_t id;
+    uint16_t port;
+    uint32_t tag_count;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_found_sources {
-            struct packet_header hdr;
-            uint8_t opcode;
-            unsigned char hash[ED2K_HASH_SIZE];
-            uint8_t count;
-        }
-);
+struct packet_found_sources {
+    struct packet_header hdr;
+    uint8_t opcode;
+    unsigned char hash[ED2K_HASH_SIZE];
+    uint8_t count;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_hello {
-            struct packet_header hdr;
-            uint8_t opcode;
-            uint8_t hash_size;
-            unsigned char hash[16];
-            uint32_t client_id;
-            uint16_t client_port;
-            uint32_t tag_count;
-            struct {
-                uint8_t type;  // TT_STR5
-                uint8_t name;  // TN_NAME
-                char value[5]; //ed2kd
-            } tag_name;
-            struct {
-                uint8_t type; // TT_UINT8 & 0x7f
-                uint8_t name; // TN_VERSION
-                uint8_t value; // EDONKEYPROTO
-            } tag_version;
-            uint32_t ip; // 0
-            uint16_t port; //0
-        }
-);
+struct packet_hello {
+    struct packet_header hdr;
+    uint8_t opcode;
+    uint8_t hash_size;
+    unsigned char hash[16];
+    uint32_t client_id;
+    uint16_t client_port;
+    uint32_t tag_count;
+    struct {
+        uint8_t type;  // TT_STR5
+        uint8_t name;  // TN_NAME
+        char value[5]; //ed2kd
+    } tag_name;
+    struct {
+        uint8_t type; // TT_UINT8 & 0x7f
+        uint8_t name; // TN_VERSION
+        uint8_t value; // EDONKEYPROTO
+    } tag_version;
+    uint32_t ip; // 0
+    uint16_t port; //0
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct tag_header {
-            uint8_t type;
-            uint16_t name_len;
-            unsigned char name[1];
-        }
-);
+struct tag_header {
+    uint8_t type;
+    uint16_t name_len;
+    unsigned char name[1];
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct tag_strval {
-            uint16_t len;
-            unsigned char str[1];
-        }
-);
+struct tag_strval {
+    uint16_t len;
+    unsigned char str[1];
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct short_tag {
-            uint8_t type;
-            uint8_t name;
-            unsigned char data[1];
-        }
-);
+struct short_tag {
+    uint8_t type;
+    uint8_t name;
+    unsigned char data[1];
+} __attribute__((__packed__));
 
 enum tag_type {
     TT_HASH16 = 0x01,

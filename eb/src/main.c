@@ -74,67 +74,61 @@ struct ebinstance {
     int actions[ACTION_COUNT];
 };
 
-PACKED_STRUCT(
-        struct packet_login {
-            struct packet_header hdr;
-            uint8_t opcode;
-            unsigned char hash[ED2K_HASH_SIZE];
-            uint32_t id;
-            uint16_t port;
-            uint32_t tag_count;
-            struct {
-                struct tag_header hdr;
-                uint16_t len;
-                unsigned char val[NICK_LEN];
-            } tag_nick;
-            struct {
-                struct tag_header hdr;
-                uint16_t val;
-            } tag_port;
-            struct {
-                struct tag_header hdr;
-                uint32_t val;
-            } tag_version;
-            struct {
-                struct tag_header hdr;
-                uint32_t val;
-            } tag_tcp_flags;
-        }
-);
+struct packet_login {
+    struct packet_header hdr;
+    uint8_t opcode;
+    unsigned char hash[ED2K_HASH_SIZE];
+    uint32_t id;
+    uint16_t port;
+    uint32_t tag_count;
+    struct {
+        struct tag_header hdr;
+        uint16_t len;
+        unsigned char val[NICK_LEN];
+    } tag_nick;
+    struct {
+        struct tag_header hdr;
+        uint16_t val;
+    } tag_port;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_version;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_tcp_flags;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct packet_offer_files {
-            struct packet_header hdr;
-            uint8_t opcode;
-            uint32_t file_count;
-        }
-);
+struct packet_offer_files {
+    struct packet_header hdr;
+    uint8_t opcode;
+    uint32_t file_count;
+} __attribute__((__packed__));
 
-PACKED_STRUCT(
-        struct pub_file {
-            unsigned char hash[ED2K_HASH_SIZE];
-            uint32_t id;
-            uint16_t port;
-            uint32_t tag_count;
-            struct {
-                struct tag_header hdr;
-                uint16_t len;
-                unsigned char val[FILENAME_LEN];
-            } tag_name;
-            struct {
-                struct tag_header hdr;
-                uint32_t val;
-            } tag_size;
-            struct {
-                struct tag_header hdr;
-                uint32_t val;
-            } tag_rating;
-            struct {
-                struct tag_header hdr;
-                uint32_t val;
-            } tag_type;
-        }
-);
+struct pub_file {
+    unsigned char hash[ED2K_HASH_SIZE];
+    uint32_t id;
+    uint16_t port;
+    uint32_t tag_count;
+    struct {
+        struct tag_header hdr;
+        uint16_t len;
+        unsigned char val[FILENAME_LEN];
+    } tag_name;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_size;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_rating;
+    struct {
+        struct tag_header hdr;
+        uint32_t val;
+    } tag_type;
+} __attribute__((__packed__));
 
 struct ebinstance g_eb;
 

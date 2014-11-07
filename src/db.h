@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "packed_struct.h"
 
 struct evbuffer;
 struct client;
