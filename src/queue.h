@@ -30,8 +30,8 @@
  * $FreeBSD$
  */
 
-#ifndef QUEUE_H
-#define	QUEUE_H
+#ifndef ED2KD_QUEUE_H
+#define	ED2KD_QUEUE_H
 
 //#include <sys/cdefs.h>
 
@@ -638,4 +638,4 @@ struct {								\
         (head2)->tqh_last = &(head2)->tqh_first;		\
 } while (0)
 
-#endif // QUEUE_H
+#endif // ED2KD_QUEUE_H

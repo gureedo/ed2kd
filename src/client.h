@@ -1,9 +1,9 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef ED2KD_CLIENT_H
+#define ED2KD_CLIENT_H
 
 #include <stdint.h>
 #include <pthread.h>
-#include "uthash.h"
+#include "uthash/uthash.h"
 #include "atomic.h"
 #include "util.h"
 
@@ -12,8 +12,8 @@ struct shared_file_entry;
 struct pub_file;
 
 #define MAX_NICK_LEN        255
-#define    MAX_FOUND_SOURCES    200 // move to config
-#define    MAX_FOUND_FILES    200 // move to config
+#define MAX_FOUND_SOURCES   200 // todo: move to config
+#define MAX_FOUND_FILES     200 // todo: move to config
 
 enum portcheck_result {
     PORTCHECK_FAILED,
@@ -104,4 +104,4 @@ void client_get_sources(struct client *clnt, const unsigned char *hash);
 
 void client_share_files(struct client *clnt, struct pub_file *files, size_t count);
 
-#endif // CLIENT_H
+#endif // ED2KD_CLIENT_H

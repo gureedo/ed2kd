@@ -1,5 +1,5 @@
-#ifndef PORTCHECK_H
-#define PORTCHECK_H
+#ifndef ED2KD_PORTCHECK_H
+#define ED2KD_PORTCHECK_H
 
 /*
   @file portcheck.h
@@ -13,4 +13,4 @@ void portcheck_event(struct client *client, short events);
 
 void portcheck_timeout(struct client *clnt);
 
-#endif // PORTCHECK_H
+#endif // ED2KD_PORTCHECK_H

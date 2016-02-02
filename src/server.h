@@ -1,5 +1,5 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef ED2KD_SERVER_H
+#define ED2KD_SERVER_H
 
 /**
 @file server.h General server configuration variables and routines
@@ -156,4 +156,4 @@ void *server_job_worker(void *ctx);
 */
 void server_add_job(struct job *job);
 
-#endif // SERVER_H
+#endif // ED2KD_SERVER_H

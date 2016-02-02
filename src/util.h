@@ -1,5 +1,5 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef ED2KD_UTIL_H
+#define ED2KD_UTIL_H
 
 /**
 @file util.h utilities
@@ -85,4 +85,4 @@ static inline void token_bucket_init(struct token_bucket *bucket, double tokens)
 int token_bucket_update(struct token_bucket *bucket, double max_tokens);
 
 
-#endif // UTIL_H
+#endif // ED2KD_UTIL_H

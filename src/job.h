@@ -1,5 +1,5 @@
-#ifndef JOB_H
-#define JOB_H
+#ifndef ED2KD_JOB_H
+#define ED2KD_JOB_H
 
 #include "queue.h"
 #include <event2/util.h>
@@ -43,4 +43,4 @@ void portcheck_event_cb(struct bufferevent *bev, short events, void *ctx);
 
 void portcheck_timeout_cb(evutil_socket_t fd, short events, void *ctx);
 
-#endif // JOB_H
+#endif // ED2KD_JOB_H

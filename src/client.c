@@ -48,7 +48,6 @@ struct client *client_new(void)
 
 void client_delete(struct client *clnt)
 {
-    struct shared_file_entry *she, *she_tmp;
     uint32_t old_val = 0;
 
     if (atomic_compare_exchange_strong(&clnt->deleted, &old_val, 1)) {
@@ -88,6 +87,7 @@ void client_delete(struct client *clnt)
             clnt->file_count = 0;
         }
 
+        struct shared_file_entry *she, *she_tmp;
         HASH_ITER(hh, clnt->shared_files, she, she_tmp) {
             HASH_DEL(clnt->shared_files, she);
             free(she);

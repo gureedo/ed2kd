@@ -1,5 +1,5 @@
-#ifndef LOG_H
-#define LOG_H
+#ifndef ED2KD_LOG_H
+#define ED2KD_LOG_H
 
 enum log_severity {
 #ifdef USE_DEBUG
@@ -21,4 +21,4 @@ void _ed2kd_log(enum log_severity svrt, const char *fmt, ...);
 #endif
 #define ED2KD_LOGERR(msg, args...) _ed2kd_log(LOG_ERR, "(%s:%d): " msg, __FILE__, __LINE__, ##args)
 
-#endif // LOG_H
+#endif // ED2KD_LOG_H

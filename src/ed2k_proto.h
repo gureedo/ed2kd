@@ -1,5 +1,5 @@
-#ifndef ED2K_PROTO_H
-#define ED2K_PROTO_H
+#ifndef ED2KD_ED2K_PROTO_H
+#define ED2KD_ED2K_PROTO_H
 
 /*
 @file ed2k_proto.h eDonkey2000 protocol details
@@ -278,4 +278,4 @@ enum search_constraint {
     SC_MINLENGTH = 0xd3000101
 };
 
-#endif // ED2K_PROTO_H
+#endif // ED2KD_ED2K_PROTO_H

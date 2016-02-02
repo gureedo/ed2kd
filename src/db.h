@@ -1,5 +1,5 @@
-#ifndef DB_H
-#define DB_H
+#ifndef ED2KD_DB_H
+#define ED2KD_DB_H
 
 /*
 @file db.h Database stuff
@@ -109,4 +109,4 @@ int db_search_files(struct search_node *root, struct evbuffer *buf, size_t *coun
 */
 int db_get_sources(const unsigned char *hash, struct file_source *out_sources, uint8_t *size);
 
-#endif // DB_H
+#endif // ED2KD_DB_H
