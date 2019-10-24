@@ -54,7 +54,9 @@ set_source_files_properties(3rdparty/sqlite3/sqlite3.c PROPERTIES COMPILE_FLAGS 
 
 add_definitions(
         -DSQLITE_THREADSAFE=1
-        -DSQLITE_ENABLE_FTS5
+        -DSQLITE_ENABLE_FTS3_PARENTHESIS
+        -DSQLITE_ENABLE_FTS4
+        -DSQLITE_ENABLE_FTS4_UNICODE61
         -DSQLITE_OMIT_LOAD_EXTENSION
 )
 

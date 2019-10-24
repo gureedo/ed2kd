@@ -29,9 +29,9 @@ IF(LIBEVENT_INCLUDE_DIR AND EXISTS "${LIBEVENT_INCLUDE_DIR}/event2/event-config.
     # Read and parse libevent version header file for version number
     file(READ "${LIBEVENT_INCLUDE_DIR}/event2/event-config.h" _libevent_HEADER_CONTENTS)
 
-    string(REGEX REPLACE ".*#define _EVENT_VERSION +\"([0-9]+).*" "\\1" LIBEVENT_VERSION_MAJOR "${_libevent_HEADER_CONTENTS}")
-    string(REGEX REPLACE ".*#define _EVENT_VERSION +\"[0-9]+\\.([0-9]+).*" "\\1" LIBEVENT_VERSION_MINOR "${_libevent_HEADER_CONTENTS}")
-    string(REGEX REPLACE ".*#define _EVENT_VERSION +\"[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" LIBEVENT_VERSION_PATCH "${_libevent_HEADER_CONTENTS}")
+    string(REGEX REPLACE ".*#define EVENT__VERSION +\"([0-9]+).*" "\\1" LIBEVENT_VERSION_MAJOR "${_libevent_HEADER_CONTENTS}")
+    string(REGEX REPLACE ".*#define EVENT__VERSION +\"[0-9]+\\.([0-9]+).*" "\\1" LIBEVENT_VERSION_MINOR "${_libevent_HEADER_CONTENTS}")
+    string(REGEX REPLACE ".*#define EVENT__VERSION +\"[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" LIBEVENT_VERSION_PATCH "${_libevent_HEADER_CONTENTS}")
 
     SET(LIBEVENT_VERSION_STRING "${LIBEVENT_VERSION_MAJOR}.${LIBEVENT_VERSION_MINOR}.${LIBEVENT_VERSION_PATCH}")
 ENDIF()
